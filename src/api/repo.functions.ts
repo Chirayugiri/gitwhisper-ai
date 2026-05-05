@@ -251,6 +251,7 @@ export const askRepo = createServerFn({ method: "POST" })
       return { ok: false as const, error: "Enter a repo as `owner/name` or a github.com URL." };
     }
 
+
     const apiKey = process.env.LLM_API_KEY?.trim();
     if (!apiKey) {
       return { ok: false as const, error: "AI gateway not configured." };
