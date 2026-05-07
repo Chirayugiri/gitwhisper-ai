@@ -248,9 +248,21 @@ function ConsolePage() {
             / console
           </span>
         </Link>
-        <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-foreground">
-          ← Back
-        </Link>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => {
+              setActiveRepo(null);
+              setRepoInput("");
+              setQuestion("");
+            }}
+            className="text-sm font-medium text-foreground hover:opacity-80 flex items-center gap-1.5"
+          >
+            <span className="text-lg leading-none mb-[2px]">+</span> New Chat
+          </button>
+          <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-foreground">
+            ← Back
+          </Link>
+        </div>
       </header>
 
       {/* Repo input */}

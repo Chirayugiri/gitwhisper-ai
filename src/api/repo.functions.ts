@@ -258,7 +258,7 @@ export const askRepo = createServerFn({ method: "POST" })
     }
 
     // Safe debug log for the developer console
-    console.log(`[Groq] Using API key: ${apiKey.slice(0, 7)}...${apiKey.slice(-4)} (length: ${apiKey.length})`);
+    // console.log(`[Groq] Using API key: ${apiKey.slice(0, 7)}...${apiKey.slice(-4)} (length: ${apiKey.length})`);
 
     let branch = "main";
     let files: { path: string; content: string }[];
