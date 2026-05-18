@@ -114,6 +114,7 @@ npm run dev
 Open:
 
 http://localhost:3000
+
 💡 How It Works
 User provides a GitHub repository
 Repository code is parsed and chunked
@@ -128,9 +129,9 @@ LLM generates grounded answers using retrieved code context
 🧠 Learn project architecture
 🛠️ Improve developer productivity
 👨‍💻 AI assistant for open-source projects
+
 📂 Project Structure
 gitwhisper-ai/
-│
 ├── app/
 ├── components/
 ├── lib/
@@ -140,6 +141,7 @@ gitwhisper-ai/
 ├── styles/
 ├── package.json
 └── README.md
+
 🔮 Future Improvements
 Multi-repository support
 GitHub authentication
@@ -148,6 +150,7 @@ Code summarization
 Repository visualization
 Multi-agent workflows
 Advanced code analytics
+
 🤝 Contributing
 
 Contributions are welcome!
