@@ -1,5 +1,19 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { pipeline, cos_sim, env } from '@xenova/transformers';
+import { QdrantClient } from '@qdrant/js-client-rest';
+// @ts-ignore
+import bm25 from 'wink-bm25-text-search';
+// @ts-ignore
+import winkNLP from 'wink-nlp';
+// @ts-ignore
+import model from 'wink-eng-lite-web-model';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const Parser: any = require('web-tree-sitter');
+
+// Ensure transformers doesn't try to access local FS cache in production edge/serverless.
+env.allowLocalModels = false;
 
 const TEXT_EXTENSIONS = new Set([
   "ts", "tsx", "js", "jsx", "mjs", "cjs",
@@ -18,12 +32,13 @@ const SKIP_DIRS = new Set([
 
 const MAX_FILES = 60;
 const MAX_FILE_BYTES = 30_000;
-const CHUNK_LINES = 60;
-const CHUNK_OVERLAP = 10;
 const TOP_K_CHUNKS = 12;
 const MAX_CONTEXT_CHARS = 80_000;
+const THRESHOLD = 0.65;
+const MIN_RESULTS_FALLBACK = 3;
 
 export type Snippet = {
+  id?: string;
   path: string;
   startLine: number;
   endLine: number;
@@ -40,24 +55,38 @@ const InputSchema = z.object({
   repo: z.string().min(3).max(140),
   question: z.string().min(2).max(2000),
   history: z.array(MessageSchema).max(40).optional().default([]),
-  // If the client already has the index, it can pass cached files to skip GitHub fetch.
-  cachedFiles: z
-    .array(z.object({ path: z.string(), content: z.string() }))
-    .max(MAX_FILES * 2)
-    .optional(),
 });
 
 type GhTreeItem = { path: string; type: string; size?: number };
 
 function parseRepo(input: string): { owner: string; repo: string } | null {
-  const cleaned = input
-    .trim()
-    .replace(/^https?:\/\/(www\.)?github\.com\//i, "")
-    .replace(/\.git$/, "")
-    .replace(/\/+$/, "");
+  let cleaned = input.trim();
+  
+  if (cleaned.startsWith('http://') || cleaned.startsWith('https://')) {
+    try {
+      const url = new URL(cleaned);
+      if (url.hostname !== 'github.com' && url.hostname !== 'www.github.com') {
+        return null;
+      }
+      cleaned = url.pathname.slice(1);
+    } catch {
+      return null;
+    }
+  }
+  
+  cleaned = cleaned.replace(/\.git$/, "").replace(/\/+$/, "");
   const parts = cleaned.split("/").filter(Boolean);
+  
   if (parts.length < 2) return null;
-  return { owner: parts[0], repo: parts[1] };
+  
+  const owner = parts[0];
+  const repo = parts[1];
+  
+  if (!/^[a-zA-Z0-9_.-]+$/.test(owner) || !/^[a-zA-Z0-9_.-]+$/.test(repo)) {
+    return null;
+  }
+  
+  return { owner, repo };
 }
 
 function ext(path: string): string {
@@ -105,7 +134,7 @@ async function ghFetch(url: string, token?: string) {
     "User-Agent": "GitWhisper/0.1",
   };
   if (token) headers.Authorization = `Bearer ${token}`;
-  return fetch(url, { headers });
+  return fetch(url, { headers, cache: "no-store" });
 }
 
 async function fetchRepoFiles(owner: string, repo: string) {
@@ -160,8 +189,27 @@ async function fetchRepoFiles(owner: string, repo: string) {
   };
 }
 
-// Split a file into overlapping line-windowed chunks
-function chunkFile(file: { path: string; content: string }): Snippet[] {
+// ============================================================================
+// 1. AST-Based Chunking
+// ============================================================================
+let parser: any = null;
+let tsLang: any = null;
+
+async function initParser() {
+  if (!parser) {
+    // @ts-ignore
+    await Parser.init();
+    // @ts-ignore
+    parser = new Parser();
+    tsLang = await Parser.Language.load('https://unpkg.com/tree-sitter-wasms@0.1.11/out/tree-sitter-typescript.wasm');
+    parser.setLanguage(tsLang);
+  }
+  return parser;
+}
+
+function fallbackChunk(file: { path: string; content: string }): Snippet[] {
+  const CHUNK_LINES = 60;
+  const CHUNK_OVERLAP = 10;
   const lines = file.content.split("\n");
   const chunks: Snippet[] = [];
   if (lines.length === 0) return chunks;
@@ -171,6 +219,7 @@ function chunkFile(file: { path: string; content: string }): Snippet[] {
     const code = lines.slice(start, end).join("\n");
     if (code.trim().length === 0) continue;
     chunks.push({
+      id: `${file.path}-${start}`,
       path: file.path,
       startLine: start + 1,
       endLine: end,
@@ -182,54 +231,68 @@ function chunkFile(file: { path: string; content: string }): Snippet[] {
   return chunks;
 }
 
-const STOP = new Set([
-  "the", "a", "an", "and", "or", "but", "of", "in", "on", "at", "to", "for", "with", "by",
-  "is", "are", "was", "were", "be", "been", "being", "this", "that", "these", "those",
-  "it", "its", "i", "you", "he", "she", "we", "they", "them", "their", "my", "your",
-  "do", "does", "did", "done", "have", "has", "had", "what", "which", "who", "whom",
-  "where", "when", "why", "how", "can", "could", "should", "would", "will", "may",
-  "about", "from", "into", "like", "just", "not", "no", "yes", "than", "then", "so",
-]);
-
-function tokenize(text: string): string[] {
-  return text
-    .toLowerCase()
-    .split(/[^a-z0-9_]+/)
-    .filter((t) => t.length > 1 && !STOP.has(t));
-}
-
-function rankChunks(question: string, chunks: Snippet[]): Snippet[] {
-  const qTokens = new Set(tokenize(question));
-  if (qTokens.size === 0) return chunks.slice(0, TOP_K_CHUNKS);
-
-  const scored = chunks.map((c) => {
-    const cTokens = tokenize(c.code + " " + c.path);
-    let hits = 0;
-    let pathBoost = 0;
-    const pathTokens = tokenize(c.path);
-    for (const t of cTokens) if (qTokens.has(t)) hits += 1;
-    for (const t of pathTokens) if (qTokens.has(t)) pathBoost += 4;
-    // tf-idf-ish: longer chunks shouldn't dominate
-    const score = hits / Math.sqrt(cTokens.length + 1) + pathBoost;
-    return { c, score };
-  });
-
-  scored.sort((a, b) => b.score - a.score);
-  // ensure path diversity in top-k
-  const seenPaths = new Map<string, number>();
-  const picked: Snippet[] = [];
-  for (const { c, score } of scored) {
-    if (score <= 0 && picked.length >= 4) break;
-    const count = seenPaths.get(c.path) ?? 0;
-    if (count >= 2) continue;
-    seenPaths.set(c.path, count + 1);
-    picked.push(c);
-    if (picked.length >= TOP_K_CHUNKS) break;
+async function chunkFileAST(file: { path: string; content: string }): Promise<Snippet[]> {
+  const lang = languageOf(file.path);
+  if (!['typescript', 'tsx', 'javascript', 'jsx'].includes(lang)) {
+    return fallbackChunk(file);
   }
-  if (picked.length === 0) return chunks.slice(0, TOP_K_CHUNKS);
-  return picked;
+  
+  try {
+    const p = await initParser();
+    const tree = p.parse(file.content);
+    const chunks: Snippet[] = [];
+    
+    function traverse(node: any) {
+      if (['function_declaration', 'class_declaration', 'method_definition', 'interface_declaration', 'type_alias_declaration'].includes(node.type)) {
+        if (node.text.length > 30) {
+          chunks.push({
+            id: `${file.path}-${node.startPosition.row}`,
+            path: file.path,
+            startLine: node.startPosition.row + 1,
+            endLine: node.endPosition.row + 1,
+            code: node.text,
+            language: lang
+          });
+        }
+      } else {
+        for (let i = 0; i < node.childCount; i++) {
+          traverse(node.child(i)!);
+        }
+      }
+    }
+    
+    traverse(tree.rootNode);
+    if (chunks.length === 0) return fallbackChunk(file);
+    return chunks;
+  } catch (e) {
+    console.error("AST chunking failed:", e);
+    return fallbackChunk(file);
+  }
 }
 
+// ============================================================================
+// Semantic & Reranker Pipelines (Lazy loaded)
+// ============================================================================
+let extractorPipeline: any = null;
+let crossEncoderPipeline: any = null;
+
+async function getExtractor() {
+  if (!extractorPipeline) {
+    extractorPipeline = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', { quantized: true });
+  }
+  return extractorPipeline;
+}
+
+async function getReranker() {
+  if (!crossEncoderPipeline) {
+    crossEncoderPipeline = await pipeline('text-classification', 'Xenova/ms-marco-MiniLM-L-6-v2', { quantized: true });
+  }
+  return crossEncoderPipeline;
+}
+
+// ============================================================================
+// Context Builder
+// ============================================================================
 function buildContext(snippets: Snippet[]): string {
   const parts: string[] = [];
   let total = 0;
@@ -242,6 +305,72 @@ function buildContext(snippets: Snippet[]): string {
   return parts.join("");
 }
 
+export const ingestRepo = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => z.object({ repo: z.string().min(3).max(140) }).parse(data))
+  .handler(async ({ data }) => {
+    const parsed = parseRepo(data.repo);
+    if (!parsed) {
+      return { ok: false as const, error: "Enter a repo as `owner/name` or a github.com URL." };
+    }
+    const collectionName = `repo_${parsed.owner}_${parsed.repo}`.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase().substring(0, 255);
+    
+    const qdrant = new QdrantClient({
+      url: process.env.QDRANT_URL || 'http://localhost:6333',
+      apiKey: process.env.QDRANT_API_KEY,
+    });
+
+    let collectionExists = false;
+    try {
+      const collections = await qdrant.getCollections();
+      collectionExists = collections.collections.some((c: any) => c.name === collectionName);
+    } catch (e) {
+      console.warn("Could not fetch Qdrant collections", e);
+    }
+
+    if (collectionExists) {
+      return { ok: true as const, message: "Repository already indexed", cached: true };
+    }
+
+    try {
+      const fetched = await fetchRepoFiles(parsed.owner, parsed.repo);
+      if (fetched.files.length === 0) {
+        return { ok: false as const, error: "No readable text files found." };
+      }
+      
+      const allChunks: Snippet[] = [];
+      for (const file of fetched.files) {
+        allChunks.push(...(await chunkFileAST(file)));
+      }
+      if (allChunks.length === 0) {
+        return { ok: false as const, error: "No code chunks could be extracted." };
+      }
+
+      await qdrant.createCollection(collectionName, { vectors: { size: 384, distance: 'Cosine' } });
+      const extract = await getExtractor();
+      const BATCH_SIZE = 50;
+      for (let i = 0; i < allChunks.length; i += BATCH_SIZE) {
+        const batch = allChunks.slice(i, i + BATCH_SIZE);
+        const batchCodes = batch.map(c => c.code);
+        const out = await extract(batchCodes, { pooling: 'mean', normalize: true });
+        const vectors = out.tolist();
+        const points = batch.map((chunk, idx) => ({
+          id: crypto.randomUUID(),
+          vector: Array.from(vectors[idx] as number[]),
+          payload: chunk as any
+        }));
+        await qdrant.upsert(collectionName, { points });
+      }
+      return { ok: true as const, message: "Repository indexed successfully", cached: false, files: fetched.files, branch: fetched.branch };
+    } catch (e) {
+      return { ok: false as const, error: e instanceof Error ? e.message : "Ingestion failed" };
+    }
+  });
+
+const qdrant = new QdrantClient({
+  url: process.env.QDRANT_URL || 'http://localhost:6333',
+  apiKey: process.env.QDRANT_API_KEY,
+});
+
 export const askRepo = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => InputSchema.parse(data))
   .handler(async ({ data }) => {
@@ -251,27 +380,31 @@ export const askRepo = createServerFn({ method: "POST" })
       return { ok: false as const, error: "Enter a repo as `owner/name` or a github.com URL." };
     }
 
-
     const apiKey = process.env.LLM_API_KEY?.trim();
     if (!apiKey) {
       return { ok: false as const, error: "AI gateway not configured." };
     }
 
-    // Safe debug log for the developer console
-    // console.log(`[Groq] Using API key: ${apiKey.slice(0, 7)}...${apiKey.slice(-4)} (length: ${apiKey.length})`);
-
     let branch = "main";
-    let files: { path: string; content: string }[];
+    let files: { path: string; content: string }[] = [];
     let totalBlobs = 0;
     let consideredFiles = 0;
     let usedCache = false;
+    let totalChunks = 0;
 
-    if (data.cachedFiles && data.cachedFiles.length > 0) {
-      files = data.cachedFiles;
-      consideredFiles = files.length;
-      totalBlobs = files.length;
-      usedCache = true;
-    } else {
+    const collectionName = `repo_${parsed.owner}_${parsed.repo}`.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase().substring(0, 255);
+
+    let collectionExists = false;
+    try {
+      const collections = await qdrant.getCollections();
+      collectionExists = collections.collections.some((c: any) => c.name === collectionName);
+    } catch (e) {
+      console.warn("Could not fetch Qdrant collections", e);
+    }
+
+    const extract = await getExtractor();
+
+    if (!collectionExists) {
       try {
         const fetched = await fetchRepoFiles(parsed.owner, parsed.repo);
         branch = fetched.branch;
@@ -281,19 +414,83 @@ export const askRepo = createServerFn({ method: "POST" })
       } catch (e) {
         return { ok: false as const, error: e instanceof Error ? e.message : "Failed to fetch repository." };
       }
-    }
 
-    if (files.length === 0) {
-      return { ok: false as const, error: "No readable text files found in this repository." };
+      if (files.length === 0) {
+        return { ok: false as const, error: "No readable text files found in this repository." };
+      }
+
+      const allChunks: Snippet[] = [];
+      for (const file of files) {
+        allChunks.push(...(await chunkFileAST(file)));
+      }
+      
+      if (allChunks.length === 0) {
+        return { ok: false as const, error: "No code chunks could be extracted." };
+      }
+
+      totalChunks = allChunks.length;
+
+      try {
+        await qdrant.createCollection(collectionName, {
+          vectors: { size: 384, distance: 'Cosine' }
+        });
+        
+        const BATCH_SIZE = 50;
+        for (let i = 0; i < allChunks.length; i += BATCH_SIZE) {
+          const batch = allChunks.slice(i, i + BATCH_SIZE);
+          const batchCodes = batch.map(c => c.code);
+          const out = await extract(batchCodes, { pooling: 'mean', normalize: true });
+          const vectors = out.tolist();
+          const points = batch.map((chunk, idx) => ({
+            id: crypto.randomUUID(),
+            vector: Array.from(vectors[idx] as number[]),
+            payload: chunk as any
+          }));
+          await qdrant.upsert(collectionName, { points });
+        }
+      } catch (e) {
+        console.error("Failed to ingest to Qdrant:", e);
+        return { ok: false as const, error: "Failed to store data in vector database." };
+      }
+    } else {
+      usedCache = true;
     }
 
     const fetchMs = Date.now() - t0;
 
-    // Chunk + rank
-    const allChunks = files.flatMap(chunkFile);
-    const top = rankChunks(data.question, allChunks);
+    // Search Phase using Qdrant
+    const queryEmbOut = await extract(data.question, { pooling: 'mean', normalize: true });
+    const queryEmb = Array.from(queryEmbOut.tolist()[0] as number[]);
+
+    const searchRes = await qdrant.search(collectionName, {
+      vector: queryEmb,
+      limit: 20
+    });
+
+    const topHybrid = searchRes.map((p: any) => p.payload as Snippet);
+
+    // 5. Re-ranking (CrossEntropy)
+    const rerank = await getReranker();
+    const rerankedResults = [];
+    for (const chunk of topHybrid) {
+      const out = await rerank(data.question, { text_pair: chunk.code });
+      const score = Array.isArray(out) ? out[0].score : out.score;
+      rerankedResults.push({ chunk, score });
+    }
+    
+    rerankedResults.sort((a, b) => b.score - a.score);
+
+    // 6. Thresholding with Minimum 3 results fallback
+    let finalChunks = rerankedResults.filter(r => r.score >= THRESHOLD).map(r => r.chunk);
+    if (finalChunks.length < MIN_RESULTS_FALLBACK) {
+      finalChunks = rerankedResults.slice(0, MIN_RESULTS_FALLBACK).map(r => r.chunk);
+    }
+    
+    const top = finalChunks.slice(0, TOP_K_CHUNKS);
+    console.log("Retrieved documents to ans the question:", top.map(c => `${c.path} (L${c.startLine}-${c.endLine})`));
     const contextText = buildContext(top);
 
+    // 7. LLM Generation
     const systemPrompt = `You are GitWhisper, an expert code analyst answering questions about a GitHub repository.
 
 FORMAT YOUR ANSWERS WELL using GitHub-flavored markdown:
@@ -316,7 +513,7 @@ Keep responses focused and information-dense.`;
 
 Question: ${data.question}
 
-Below are the most relevant code snippets retrieved by hybrid keyword + path ranking. Each is labeled with its file path and line range.
+Below are the most relevant code snippets retrieved using a semantic hybrid AST-chunking pipeline. Each is labeled with its file path and line range.
 
 ${contextText}`;
 
@@ -362,13 +559,12 @@ ${contextText}`;
         repo: repoLabel,
         branch,
         snippets: top,
-        // Only return files when they came from a fresh fetch — to seed client cache.
         files: usedCache ? undefined : files,
         stats: {
           totalBlobs,
           consideredFiles,
           indexedFiles: files.length,
-          totalChunks: allChunks.length,
+          totalChunks: usedCache ? -1 : totalChunks,
           retrievedChunks: top.length,
           fetchMs,
           aiMs,

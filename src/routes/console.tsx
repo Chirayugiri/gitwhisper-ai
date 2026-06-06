@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { askRepo, type Snippet } from "@/api/repo.functions";
+import { askRepo, ingestRepo, type Snippet } from "@/api/repo.functions";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { Trash2, Menu, X, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/console")({
   head: () => ({
@@ -38,13 +39,6 @@ type Turn = {
   error?: boolean;
 };
 
-type CachedRepo = {
-  repo: string;
-  branch: string;
-  files: { path: string; content: string }[];
-  fetchedAt: number;
-};
-
 const SUGGESTIONS = [
   "What does this repo do?",
   "Explain the project structure.",
@@ -52,8 +46,7 @@ const SUGGESTIONS = [
   "Which dependencies does it use and why?",
 ];
 
-const HISTORY_KEY = "gitwhisper.history.v2";
-const CACHE_KEY = "gitwhisper.cache.v1";
+const HISTORY_KEY = "gitwhisper.history.v3";
 
 function loadHistory(): Record<string, Turn[]> {
   if (typeof window === "undefined") return {};
@@ -66,65 +59,57 @@ function loadHistory(): Record<string, Turn[]> {
 function saveHistory(h: Record<string, Turn[]>) {
   try {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
-  } catch {}
-}
-function loadCache(): Record<string, CachedRepo> {
-  if (typeof window === "undefined") return {};
-  try {
-    return JSON.parse(localStorage.getItem(CACHE_KEY) ?? "{}");
-  } catch {
-    return {};
-  }
-}
-function saveCache(c: Record<string, CachedRepo>) {
-  try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(c));
-  } catch {
-    // Quota exceeded — keep only the latest entry.
-    try {
-      const entries = Object.entries(c).sort((a, b) => b[1].fetchedAt - a[1].fetchedAt);
-      localStorage.setItem(CACHE_KEY, JSON.stringify(Object.fromEntries(entries.slice(0, 1))));
-    } catch {}
-  }
+  } catch { }
 }
 
 function normalizeRepo(input: string): string {
-  return input
-    .trim()
-    .replace(/^https?:\/\/(www\.)?github\.com\//i, "")
-    .replace(/\.git$/, "")
-    .replace(/\/+$/, "")
-    .toLowerCase();
+  let cleaned = input.trim();
+  if (cleaned.startsWith('http://') || cleaned.startsWith('https://')) {
+    try {
+      const url = new URL(cleaned);
+      if (url.hostname !== 'github.com' && url.hostname !== 'www.github.com') {
+        return cleaned; // Let the backend reject it later
+      }
+      cleaned = url.pathname.slice(1);
+    } catch {
+      return cleaned;
+    }
+  }
+
+  cleaned = cleaned.replace(/\.git$/, "").replace(/\/+$/, "").toLowerCase();
+  const parts = cleaned.split("/").filter(Boolean);
+  if (parts.length >= 2) return `${parts[0]}/${parts[1]}`;
+  return cleaned;
 }
 
 type Phase =
   | { kind: "idle" }
-  | { kind: "fetching"; startedAt: number; cached: boolean }
+  | { kind: "fetching"; startedAt: number }
   | { kind: "retrieving"; startedAt: number }
   | { kind: "answering"; startedAt: number };
 
 function ConsolePage() {
   const ask = useServerFn(askRepo);
+  const ingest = useServerFn(ingestRepo);
   const [repoInput, setRepoInput] = useState("vercel/next.js");
   const [activeRepo, setActiveRepo] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
   const [allHistory, setAllHistory] = useState<Record<string, Turn[]>>({});
-  const [cache, setCache] = useState<Record<string, CachedRepo>>({});
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [openSnippet, setOpenSnippet] = useState<Snippet | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [ingestPhase, setIngestPhase] = useState<"idle" | "fetching" | "done" | "error">("idle");
+  const [ingestMessage, setIngestMessage] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Hydrate from localStorage
   useEffect(() => {
     const h = loadHistory();
-    const c = loadCache();
     setAllHistory(h);
-    setCache(c);
-    // Restore the most recently used repo
-    const mostRecent = Object.entries(c).sort((a, b) => b[1].fetchedAt - a[1].fetchedAt)[0];
-    if (mostRecent) {
-      setActiveRepo(mostRecent[0]);
-      setRepoInput(mostRecent[1].repo);
+    const keys = Object.keys(h);
+    if (keys.length > 0) {
+      setActiveRepo(keys[keys.length - 1]);
+      setRepoInput(keys[keys.length - 1]);
     }
   }, []);
 
@@ -151,20 +136,19 @@ function ConsolePage() {
       const trimmedRepo = repoInput.trim();
       if (!trimmed || !trimmedRepo || phase.kind !== "idle") return;
       const key = normalizeRepo(trimmedRepo);
-      const cached = cache[key];
 
       setQuestion("");
       setActiveRepo(key);
       updateTurns(key, (prev) => [...prev, { role: "user", content: trimmed }]);
 
       const t0 = Date.now();
-      setPhase({ kind: cached ? "retrieving" : "fetching", startedAt: t0, cached: !!cached } as Phase);
+      setPhase({ kind: "retrieving", startedAt: t0 } as Phase);
 
       // Bump to "answering" once the network has been alive long enough
       // to suggest fetching/ranking finished. This is a UX heuristic.
       const answerTimer = window.setTimeout(() => {
         setPhase((p) => (p.kind === "idle" ? p : { kind: "answering", startedAt: Date.now() }));
-      }, cached ? 400 : 1800);
+      }, 1800);
 
       try {
         const recentHistory = (allHistory[key] ?? []).slice(-12).map((t) => ({
@@ -176,27 +160,10 @@ function ConsolePage() {
             repo: trimmedRepo,
             question: trimmed,
             history: recentHistory,
-            cachedFiles: cached?.files,
           },
         });
 
         if (result.ok) {
-          // Update cache when fresh files came back
-          if (result.files) {
-            setCache((c) => {
-              const next = {
-                ...c,
-                [key]: {
-                  repo: result.repo,
-                  branch: result.branch,
-                  files: result.files!,
-                  fetchedAt: Date.now(),
-                },
-              };
-              saveCache(next);
-              return next;
-            });
-          }
           updateTurns(key, (prev) => [
             ...prev,
             {
@@ -223,17 +190,59 @@ function ConsolePage() {
         setPhase({ kind: "idle" });
       }
     },
-    [repoInput, cache, allHistory, phase.kind, ask, updateTurns],
+    [repoInput, allHistory, phase.kind, ask, updateTurns],
   );
 
   const clearConversation = () => {
     if (!activeRepo) return;
-    if (!confirm("Clear conversation for this repo? Indexed files stay cached.")) return;
+    if (!confirm("Clear conversation for this repo?")) return;
     updateTurns(activeRepo, () => []);
   };
 
-  const cachedRepos = Object.values(cache).sort((a, b) => b.fetchedAt - a.fetchedAt);
-  const activeCache = activeRepo ? cache[activeRepo] : undefined;
+  const deleteChat = (key: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Delete this chat?")) return;
+
+    setAllHistory((h) => {
+      const next = { ...h };
+      delete next[key];
+      saveHistory(next);
+      return next;
+    });
+
+    if (activeRepo === key) {
+      setActiveRepo(null);
+      setRepoInput("");
+      setQuestion("");
+    }
+  };
+
+  const handleIngest = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const trimmed = repoInput.trim();
+    if (!trimmed || ingestPhase === "fetching") return;
+    const key = normalizeRepo(trimmed);
+
+    setIngestPhase("fetching");
+    setIngestMessage("Fetching and indexing repository...");
+    setActiveRepo(key);
+
+    try {
+      const res = await ingest({ data: { repo: trimmed } });
+      if (res.ok) {
+        setIngestMessage(res.message);
+        setIngestPhase("done");
+      } else {
+        setIngestMessage(`Error: ${res.error}`);
+        setIngestPhase("error");
+      }
+    } catch (err) {
+      setIngestMessage("Error ingesting repository.");
+      setIngestPhase("error");
+    }
+  };
+
+  const historyRepos = Object.keys(allHistory).filter(k => allHistory[k]?.length > 0).reverse();
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -268,26 +277,39 @@ function ConsolePage() {
       {/* Repo input */}
       <div className="border-b border-border/60 bg-muted/30">
         <div className="max-w-7xl mx-auto px-6 md:px-10 py-4 flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-1.5 hover:bg-muted rounded text-muted-foreground transition-colors"
+            title="Toggle Sidebar"
+          >
+            {isSidebarOpen ? <X size={16} /> : <Menu size={16} />}
+          </button>
           <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
             Repo
           </div>
-          <input
-            value={repoInput}
-            onChange={(e) => setRepoInput(e.target.value)}
-            placeholder="owner/name or github.com URL"
-            className="flex-1 min-w-[240px] bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/60"
-          />
+          <form onSubmit={handleIngest} className="flex-1 flex min-w-[240px]">
+            <input
+              value={repoInput}
+              onChange={(e) => setRepoInput(e.target.value)}
+              placeholder="owner/name or github.com URL (Hit Enter to load)"
+              disabled={ingestPhase === "fetching"}
+              className="flex-1 bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/60 disabled:opacity-50"
+            />
+          </form>
           <span
-            className={`font-mono text-[10px] uppercase tracking-widest ${
-              activeCache ? "text-primary" : "text-muted-foreground"
-            }`}
+            className={`font-mono text-[10px] uppercase tracking-widest flex items-center gap-1.5 ${ingestPhase === "fetching" ? "text-primary" :
+                ingestPhase === "error" ? "text-destructive" :
+                  "text-muted-foreground"
+              }`}
           >
-            {activeCache ? `● ${activeCache.files.length} files cached` : "○ idle"}
+            {ingestPhase === "fetching" ? <><Loader2 size={12} className="animate-spin" /> {ingestMessage}</> :
+              ingestPhase === "error" ? ingestMessage :
+                ingestPhase === "done" ? ingestMessage : "○ idle"}
           </span>
           {turns.length > 0 && (
             <button
               onClick={clearConversation}
-              className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-destructive transition-colors"
+              className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-destructive transition-colors ml-auto"
             >
               Clear chat
             </button>
@@ -298,38 +320,45 @@ function ConsolePage() {
       {/* Main two-column layout */}
       <div className="flex-1 flex min-h-0">
         {/* Sidebar — recent repos */}
-        {cachedRepos.length > 0 && (
+        {historyRepos.length > 0 && isSidebarOpen && (
           <aside className="hidden lg:block w-64 border-r border-border/60 bg-surface/50 overflow-y-auto">
             <div className="p-4">
               <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest mb-3">
                 Recent repos
               </div>
               <ul className="space-y-1">
-                {cachedRepos.map((c) => {
-                  const k = normalizeRepo(c.repo);
+                {historyRepos.map((repoKey) => {
+                  const k = repoKey;
                   const isActive = k === activeRepo;
                   const turnCount = (allHistory[k] ?? []).length;
                   return (
-                    <li key={k}>
+                    <li key={k} className="relative group flex items-center">
                       <button
                         onClick={() => {
                           setActiveRepo(k);
-                          setRepoInput(c.repo);
+                          setRepoInput(repoKey);
                         }}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                          isActive
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors pr-9 ${isActive
                             ? "bg-foreground text-background"
                             : "hover:bg-muted text-foreground"
-                        }`}
-                      >
-                        <div className="font-mono text-xs truncate">{c.repo}</div>
-                        <div
-                          className={`text-[10px] mt-0.5 ${
-                            isActive ? "text-background/60" : "text-muted-foreground"
                           }`}
+                      >
+                        <div className="font-mono text-xs truncate">{k}</div>
+                        <div
+                          className={`text-[10px] mt-0.5 ${isActive ? "text-background/60" : "text-muted-foreground"
+                            }`}
                         >
                           {turnCount} message{turnCount === 1 ? "" : "s"}
                         </div>
+                      </button>
+                      <button
+                        onClick={(e) => deleteChat(k, e)}
+                        className={`absolute right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md hover:bg-destructive hover:text-destructive-foreground ${isActive ? "text-background/80 hover:text-white" : "text-muted-foreground"
+                          }`}
+                        title="Delete chat"
+                        aria-label="Delete chat"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </li>
                   );
@@ -376,8 +405,8 @@ function ConsolePage() {
                 <TurnView
                   key={i}
                   turn={t}
-                  repo={activeCache?.repo ?? repoInput}
-                  branch={t.branch ?? activeCache?.branch ?? "main"}
+                  repo={activeRepo ?? repoInput}
+                  branch={t.branch ?? "main"}
                   onOpenSnippet={setOpenSnippet}
                 />
               ))}
@@ -385,8 +414,6 @@ function ConsolePage() {
               {phase.kind !== "idle" && (
                 <IndexingPanel
                   phase={phase}
-                  cached={!!activeCache}
-                  cachedCount={activeCache?.files.length ?? 0}
                 />
               )}
             </div>
@@ -423,9 +450,7 @@ function ConsolePage() {
                 </button>
               </form>
               <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest mt-2 text-center">
-                {activeCache
-                  ? `Index cached · ${activeCache.files.length} files · follow-ups skip GitHub`
-                  : "Powered by Lovable AI · Hybrid retrieval over GitHub"}
+                Hybrid retrieval over GitHub
               </div>
             </div>
           </div>
@@ -436,8 +461,8 @@ function ConsolePage() {
       {openSnippet && (
         <SnippetSheet
           snippet={openSnippet}
-          repo={activeCache?.repo ?? repoInput}
-          branch={openSnippet ? activeCache?.branch ?? "main" : "main"}
+          repo={activeRepo ?? repoInput}
+          branch={openSnippet.branch ?? "main"}
           onClose={() => setOpenSnippet(null)}
         />
       )}
@@ -449,12 +474,8 @@ function ConsolePage() {
 
 function IndexingPanel({
   phase,
-  cached,
-  cachedCount,
 }: {
   phase: Phase;
-  cached: boolean;
-  cachedCount: number;
 }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -466,16 +487,11 @@ function IndexingPanel({
   const elapsed = ((now - phase.startedAt) / 1000).toFixed(1);
 
   type Step = { id: Phase["kind"]; label: string; eta: string };
-  const steps: Step[] = cached
-    ? [
-        { id: "retrieving", label: "Retrieving from cache", eta: "~0.5s" },
-        { id: "answering", label: "Generating answer", eta: "~3–6s" },
-      ]
-    : [
-        { id: "fetching", label: "Fetching repository tree & files", eta: "~3–8s" },
-        { id: "retrieving", label: "Chunking & ranking", eta: "~1s" },
-        { id: "answering", label: "Generating answer", eta: "~3–6s" },
-      ];
+  const steps: Step[] = [
+    { id: "fetching", label: "Fetching repository tree & files", eta: "~3–8s" },
+    { id: "retrieving", label: "Searching vector database", eta: "~1s" },
+    { id: "answering", label: "Generating answer", eta: "~3–6s" },
+  ];
 
   const activeIdx = steps.findIndex((s) => s.id === phase.kind);
 
@@ -504,20 +520,18 @@ function IndexingPanel({
           return (
             <li key={s.id} className="flex items-center gap-3">
               <span
-                className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                  state === "done"
+                className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${state === "done"
                     ? "bg-primary text-primary-foreground"
                     : state === "active"
-                    ? "bg-foreground text-background"
-                    : "bg-muted text-muted-foreground"
-                }`}
+                      ? "bg-foreground text-background"
+                      : "bg-muted text-muted-foreground"
+                  }`}
               >
                 {state === "done" ? "✓" : i + 1}
               </span>
               <span
-                className={`flex-1 text-sm ${
-                  state === "pending" ? "text-muted-foreground" : "text-foreground"
-                }`}
+                className={`flex-1 text-sm ${state === "pending" ? "text-muted-foreground" : "text-foreground"
+                  }`}
               >
                 {s.label}
               </span>
@@ -566,11 +580,10 @@ function TurnView({
     <div className="animate-slide-in">
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <div
-          className={`font-mono text-[10px] inline-block px-2 py-1 rounded uppercase tracking-widest ${
-            turn.error
+          className={`font-mono text-[10px] inline-block px-2 py-1 rounded uppercase tracking-widest ${turn.error
               ? "bg-destructive text-destructive-foreground"
               : "bg-foreground text-background"
-          }`}
+            }`}
         >
           {turn.error ? "Error" : "Answer"}
         </div>
