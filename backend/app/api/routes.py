@@ -153,6 +153,8 @@ def ask_repo(req: AskRequest):
         "repo": repo_label,
         "branch": branch,
         "snippets": result_state.get("snippets", []),
+        "retrieved_chunks": result_state.get("top_hybrid", []),
+        "reranked_chunks": result_state.get("snippets", []),
         "files": None if used_cache else files,
         "stats": {
             "totalBlobs": total_blobs,

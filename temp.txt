@@ -1,0 +1,1215 @@
+{
+    "t": 10,
+    "i": 0,
+    "p": {
+        "k": [
+            "result",
+            "error",
+            "context"
+        ],
+        "v": [
+            {
+                "t": 10,
+                "i": 1,
+                "p": {
+                    "k": [
+                        "ok",
+                        "answer",
+                        "repo",
+                        "branch",
+                        "snippets",
+                        "retrieved_chunks",
+                        "reranked_chunks",
+                        "files",
+                        "stats",
+                        "error"
+                    ],
+                    "v": [
+                        {
+                            "t": 2,
+                            "s": 2
+                        },
+                        {
+                            "t": 1,
+                            "s": "## Tech Stack\\n\\nThe tech stack of the `hash88o/Timecapsules-onchain` repository can be broken down into the following components:\\n\\n### Frontend\\n\\n* **Programming Language**: TypeScript\\n* **Framework**: React\\n* **UI Library**: None (uses React components directly)\\n* **State Management**: React Context API (used in `src/contexts/TimeCapsuleProvider.tsx`)\\n* **Toast Notifications**: Custom implementation (defined in `src/hooks/useToast.ts`)\\n\\n### Build and Deployment\\n\\n* **Build Tool**: Vite (configured in `vite.config.ts`)\\n* **TypeScript Configuration**: Defined in `tsconfig.node.json`\\n\\n### Blockchain Integration\\n\\n* **Blockchain**: Solana\\n* **Wallet Integration**: Solana wallet (used in `src/contexts/TimeCapsuleProvider.tsx`)\\n\\n### Miscellaneous\\n\\n* **Node Version**: Not specified, but likely a recent version of Node.js (given the use of modern TypeScript features)\\n* **Target Environment**: Browser (given the use of React and Vite)\\n\\n## Key Technologies\\n\\n* **TypeScript**: Used for type checking and code compilation\\n* **React**: Used for building the frontend UI\\n* **Vite**: Used for building and serving the application\\n* **Solana**: Used for blockchain integration and wallet management\\n* **React Context API**: Used for state management and sharing data between components\\n\\n## Development Environment\\n\\n* **Code Editor**: Not specified, but likely a modern code editor such as Visual Studio Code or IntelliJ IDEA\\n* **Terminal**: Not specified, but likely a Unix-like terminal such as Bash or Zsh\\n* **Operating System**: Not specified, but likely a modern operating system such as macOS, Windows, or Linux\\n\\nNote that this is not an exhaustive list, and additional technologies may be used in the project that are not immediately apparent from the provided code snippets."
+                        },
+                        {
+                            "t": 1,
+                            "s": "hash88o/Timecapsules-onchain"
+                        },
+                        {
+                            "t": 1,
+                            "s": "main"
+                        },
+                        {
+                            "t": 9,
+                            "i": 2,
+                            "a": [
+                                {
+                                    "t": 10,
+                                    "i": 3,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "src/contexts/TimeCapsuleProvider.tsx-36"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "src/contexts/TimeCapsuleProvider.tsx"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 37
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 386
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "function TimeCapsuleProvider({ children }: TimeCapsuleProviderProps) {\\n  const { \\n    capsules: hookCapsules, \\n    loading: hookLoading, \\n    createCapsule, \\n    fetchCapsules: rawFetchCapsules, \\n    addReaction,\\n    getBalance,\\n    verifyOnChainAction,\\n    updateCapsule,\\n    incrementViews,\\n    processInheritance\\n  } = useTimeCapsuleHook();\\n  const [capsules, setCapsules] = useState\\x3CTimeCapsule[]>([]);\\n  const [loading, setLoading] = useState(true);\\n  const [backgroundLoading, setBackgroundLoading] = useState(false);\\n  const [initialized, setInitialized] = useState(false);\\n  const [currentInterval, setCurrentInterval] = useState(INITIAL_REFRESH_INTERVAL);\\n  const lastFetchTime = useRef\\x3Cnumber>(0);\\n  const lastFocusRefetch = useRef\\x3Cnumber>(0);\\n  const consecutiveErrors = useRef(0);\\n  const isRefreshing = useRef(false);\\n\\n  \\n  const fetchCapsulesInBackground = useCallback(async () => {\\n    if (isRefreshing.current) return;\\n    \\n    isRefreshing.current = true;\\n    setBackgroundLoading(true);\\n    \\n    try {\\n      console.log('📡 Fetching real capsules from blockchain...');\\n      const data = await rawFetchCapsules();\\n      \\n      \\n      setCapsules(prevCapsules => {\\n        const mergedCapsules = [...prevCapsules];\\n        let hasNewCapsules = false;\\n        \\n        data.forEach(newCapsule => {\\n          const existingIndex = mergedCapsules.findIndex(c => c.id === newCapsule.id);\\n          if (existingIndex >= 0) {\\n            \\n            if (JSON.stringify(mergedCapsules[existingIndex]) !== JSON.stringify(newCapsule)) {\\n              mergedCapsules[existingIndex] = newCapsule;\\n            }\\n          } else {\\n            \\n            if (!newCapsule.id.startsWith('demo-capsule-')) {\\n              mergedCapsules.push(newCapsule);\\n              hasNewCapsules = true;\\n            }\\n          }\\n        });\\n        \\n        if (hasNewCapsules) {\\n          console.log(`✅ Added ${data.filter(c => !c.id.startsWith('demo-capsule-')).length} real capsules from blockchain`);\\n        }\\n        \\n        return mergedCapsules.sort((a, b) => b.createdAt - a.createdAt);\\n      });\\n      \\n      \\n      consecutiveErrors.current = 0;\\n      setCurrentInterval(INITIAL_REFRESH_INTERVAL);\\n      \\n    } catch (error) {\\n      console.warn('Background fetch failed:', error);\\n      consecutiveErrors.current++;\\n      const newInterval = Math.min(\\n        currentInterval * BACKOFF_MULTIPLIER,\\n        MAX_REFRESH_INTERVAL\\n      );\\n      setCurrentInterval(newInterval);\\n    } finally {\\n      isRefreshing.current = false;\\n      setBackgroundLoading(false);\\n    }\\n  }, [rawFetchCapsules, currentInterval]);\\n\\n  \\n  useEffect(() => {\\n    if (!initialized) {\\n      console.log('🚀 Loading demo capsules immediately...');\\n      \\n      // Demo capsules for immediate display\\n      const demoCapsules: TimeCapsule[] = [\\n        {\\n          id: 'demo-capsule-1',\\n          title: 'Welcome to Time Capsules! 🎉',\\n          message: 'This is a demo time capsule to show how the system works! You can like it, view it, and see how the interface responds. Real capsules from the blockchain will load in the background.',\\n          unlockTimestamp: Date.now() - 86400000, // Unlocked (1 day ago)\\n          capsuleType: 'Public',\\n          creatorAddress: 'DemoCreator1111111111111111111111111111111',\\n          createdAt: Date.now() - 86400000,\\n          views: 42,\\n          reactions: {\\n            'User1111111111111111111111111111111111111': '❤️',\\n            'User2222222222222222222222222222222222222': '❤️',\\n            'User3333333333333333333333333333333333333': '❤️',\\n          },\\n          tips: { totalAmount: 0, tipCount: 0 },\\n          mood: {\\n            emoji: '🎉',\\n            category: 'excited',\\n            intensity: 5\\n          }\\n        },\\n        {\\n          id: 'demo-capsule-2',\\n          title: 'Future Message ⏰',\\n          message: 'This capsule will unlock in the future. Try liking it and see how the heart animation works! The like count will persist even after you refresh the page.',\\n          unlockTimestamp: Date.now() + 3600000, // Unlocks in 1 hour\\n          capsuleType: 'Public',\\n          creatorAddress: 'DemoCreator2222222222222222222222222222222',\\n          createdAt: Date.now() - 3600000,\\n          views: 15,\\n          reactions: {\\n            'User1111111111111111111111111111111111111': '❤️',\\n          },\\n          tips: { totalAmount: 0, tipCount: 0 },\\n          mood: {\\n            emoji: '⏰',\\n            category: 'hopeful',\\n            intensity: 3\\n          }\\n        },\\n        {\\n          id: 'demo-capsule-3',\\n          title: 'Interactive Demo 💫',\\n          message: 'Click the heart icons to like this capsule! The system now properly tracks likes and shows them consistently across all heart icons. Try refreshing the page - your likes will persist!',\\n          unlockTimestamp: Date.now() - 7200000, // Unlocked (2 hours ago)\\n          capsuleType: 'Public',\\n          creatorAddress: 'DemoCreator3333333333333333333333333333333',\\n          createdAt: Date.now() - 7200000,\\n          views: 28,\\n          reactions: {\\n            'User4444444444444444444444444444444444444': '❤️',\\n            'User5555555555555555555555555555555555555': '❤️',\\n          },\\n          tips: { totalAmount: 0, tipCount: 0 },\\n          mood: {\\n            emoji: '💫',\\n            category: 'adventurous',\\n            intensity: 4\\n          }\\n        }\\n      ];\\n\\n\\n      setCapsules(demoCapsules);\\n      setLoading(false);\\n      setInitialized(true);\\n      \\n      console.log('✅ Demo capsules loaded immediately!');\\n      \\n      setTimeout(() => {\\n        console.log('🔄 Starting background fetch of real capsules...');\\n        import('../services/transactionRegistry').then(({ transactionRegistry }) => {\\n          const registryStats = transactionRegistry.getStats();\\n          console.log('📊 Registry status:', registryStats);\\n        });\\n        \\n        fetchCapsulesInBackground();\\n      }, 100);  \\n    }\\n  }, [initialized, fetchCapsulesInBackground]);\\n\\n  const fetchCapsules = useCallback(async (walletAddress?: string): Promise\\x3CTimeCapsule[]> => {\\n    const now = Date.now();\\n    const timeSinceLastFetch = now - lastFetchTime.current;\\n\\n    \\n    if (timeSinceLastFetch \\x3C MIN_RETRY_DELAY) {\\n      console.log(`Skipping fetch - too soon (${timeSinceLastFetch}ms since last fetch)`);\\n      return capsules;\\n    }\\n\\n    \\n    if (isRefreshing.current) {\\n      console.log('Fetch already in progress, skipping');\\n      return capsules; \\n    }\\n\\n    isRefreshing.current = true;\\n\\n    try {\\n      lastFetchTime.current = now;\\n      const data = await rawFetchCapsules(walletAddress);\\n      \\n      \\n      consecutiveErrors.current = 0;\\n      setCurrentInterval(INITIAL_REFRESH_INTERVAL);\\n\\n      setCapsules(prevCapsules => {\\n        const mergedCapsules = [...prevCapsules];\\n        \\n        \\n        data.forEach(newCapsule => {\\n          const existingIndex = mergedCapsules.findIndex(c => c.id === newCapsule.id);\\n          if (existingIndex >= 0) {\\n        \\n            if (JSON.stringify(mergedCapsules[existingIndex]) !== JSON.stringify(newCapsule)) {\\n              mergedCapsules[existingIndex] = newCapsule;\\n            }\\n          } else {\\n            mergedCapsules.push(newCapsule);\\n          }\\n        });\\n        \\n        return mergedCapsules.sort((a, b) => b.createdAt - a.createdAt);\\n      });\\n      return data;\\n    } catch (error) {\\n      \\n      consecutiveErrors.current++;\\n      const newInterval = Math.min(\\n        currentInterval * BACKOFF_MULTIPLIER,\\n        MAX_REFRESH_INTERVAL\\n      );\\n      setCurrentInterval(newInterval);\\n      \\n      console.warn(`Fetch error (attempt ${consecutiveErrors.current}). Next retry in ${newInterval/1000}s`, error);\\n      return capsules;\\n    } finally {\\n      isRefreshing.current = false;\\n    }\\n  }, [rawFetchCapsules, currentInterval, capsules]);\\n\\n  \\n  const refetch = useCallback(async () => {\\n    await fetchCapsules();\\n  }, [fetchCapsules]);\\n\\n\\n  useEffect(() => {\\n    const handleVisibilityChange = () => {\\n      if (document.visibilityState === 'visible' && initialized) {\\n        console.log('Page became visible, triggering refetch');\\n        refetch();\\n      }\\n    };\\n\\n    const handleOnline = () => {\\n      if (initialized) {\\n        console.log('Network connection restored, triggering refetch');\\n        refetch();\\n      }\\n    };\\n\\n    const handleFocus = () => {\\n      if (initialized) {\\n        const now = Date.now();\\n        const timeSinceLastFocusRefetch = now - lastFocusRefetch.current;\\n        \\n        if (timeSinceLastFocusRefetch >= FOCUS_REFETCH_COOLDOWN) {\\n          console.log('Window focused, triggering refetch');\\n          lastFocusRefetch.current = now;\\n          refetch();\\n        } else {\\n          console.log(`Window focused, but skipping refetch (cooldown: ${Math.ceil((FOCUS_REFETCH_COOLDOWN - timeSinceLastFocusRefetch) / 1000)}s remaining)`);\\n        }\\n      }\\n    };\\n\\n    \\n    if (initialized) {\\n      document.addEventListener('visibilitychange', handleVisibilityChange);\\n      window.addEventListener('online', handleOnline);\\n      window.addEventListener('focus', handleFocus);\\n    }\\n\\n  \\n    return () => {\\n      document.removeEventListener('visibilitychange', handleVisibilityChange);\\n      window.removeEventListener('online', handleOnline);\\n      window.removeEventListener('focus', handleFocus);\\n    };\\n  }, [initialized, refetch]);\\n\\n\\n  useEffect(() => {\\n    if (!initialized) return;\\n    \\n    const interval = setInterval(() => {\\n      fetchCapsulesInBackground(); \\n    }, currentInterval);\\n    \\n    return () => clearInterval(interval);\\n  }, [initialized, currentInterval, fetchCapsulesInBackground]);\\n\\n  \\n  useEffect(() => {\\n    if (hookCapsules.length > 0) {\\n      setCapsules(prevCapsules => {\\n        const mergedCapsules = [...prevCapsules];\\n        let hasChanges = false;\\n        \\n        hookCapsules.forEach(newCapsule => {\\n          const existingIndex = mergedCapsules.findIndex(c => c.id === newCapsule.id);\\n          if (existingIndex >= 0) {\\n            if (JSON.stringify(mergedCapsules[existingIndex]) !== JSON.stringify(newCapsule)) {\\n              mergedCapsules[existingIndex] = newCapsule;\\n              hasChanges = true;\\n            }\\n          } else {\\n            if (!newCapsule.id.startsWith('demo-capsule-')) {\\n              mergedCapsules.push(newCapsule);\\n              hasChanges = true;\\n            }\\n          }\\n        });\\n        \\n        return hasChanges ? mergedCapsules.sort((a, b) => b.createdAt - a.createdAt) : prevCapsules;\\n      });\\n    }\\n  }, [hookCapsules]);\\n\\n  useEffect(() => {\\n      \\n    ShellService.injectHook({ \\n      capsules, \\n      loading, \\n      createCapsule, \\n      fetchCapsules, \\n      addReaction,\\n      getBalance,\\n      verifyOnChainAction,\\n      updateCapsule,\\n      incrementViews,\\n      processInheritance\\n    });\\n  }, [capsules, loading, createCapsule, fetchCapsules, addReaction, getBalance, verifyOnChainAction, updateCapsule, incrementViews, processInheritance]);\\n\\n  const contextValue = {\\n    capsules,\\n    loading,\\n    backgroundLoading,\\n    createCapsule,\\n    fetchCapsules,\\n    addReaction,\\n    refetch\\n  };\\n\\n  return (\\n    \\x3CTimeCapsuleContext.Provider value={contextValue}>\\n      {children}\\n    \\x3C/TimeCapsuleContext.Provider>\\n  );\\n}"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "tsx"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 4,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "src/hooks/useToast.ts-4"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "src/hooks/useToast.ts"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 5
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 9
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "interface ToastState {\\n  isVisible: boolean;\\n  message: string;\\n  type: ToastType;\\n}"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "typescript"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 5,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "tsconfig.node.json-0"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "tsconfig.node.json"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 1
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 26
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "{\\n  \\\"compilerOptions\\\": {\\n    \\\"tsBuildInfoFile\\\": \\\"./node_modules/.tmp/tsconfig.node.tsbuildinfo\\\",\\n    \\\"target\\\": \\\"ES2022\\\",\\n    \\\"lib\\\": [\\\"ES2023\\\"],\\n    \\\"module\\\": \\\"ESNext\\\",\\n    \\\"skipLibCheck\\\": true,\\n\\n    /* Bundler mode */\\n    \\\"moduleResolution\\\": \\\"bundler\\\",\\n    \\\"allowImportingTsExtensions\\\": true,\\n    \\\"verbatimModuleSyntax\\\": false,\\n    \\\"moduleDetection\\\": \\\"force\\\",\\n    \\\"noEmit\\\": true,\\n\\n    /* Linting */\\n    \\\"strict\\\": true,\\n    \\\"noUnusedLocals\\\": true,\\n    \\\"noUnusedParameters\\\": true,\\n    \\\"erasableSyntaxOnly\\\": true,\\n    \\\"noFallthroughCasesInSwitch\\\": true,\\n    \\\"noUncheckedSideEffectImports\\\": true,\\n  },\\n  \\\"include\\\": [\\\"vite.config.ts\\\"]\\n}\\n"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "json"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                }
+                            ],
+                            "o": 0
+                        },
+                        {
+                            "t": 9,
+                            "i": 6,
+                            "a": [
+                                {
+                                    "t": 10,
+                                    "i": 7,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "src/components/SolscanIcon.tsx-2"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "src/components/SolscanIcon.tsx"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 3
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 5
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "interface SolscanIconProps {\\n  className?: string;\\n}"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "tsx"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 8,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "src/utils/utils.ts-3"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "src/utils/utils.ts"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 4
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 6
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "function cn(...inputs: ClassValue[]) {\\n  return twMerge(clsx(inputs))\\n}"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "typescript"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 9,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "README.md-0"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "README.md"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 1
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 60
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "# 🌊 Solana Time Capsules\\n\\n[![Live Demo](https://img.shields.io/badge/Live%20Demo-Available-brightgreen)](https://f6a8f851-9118-4811-bd33-12efa330536d.deployment.aimpact.dev/)\\n[![Blockchain](https://img.shields.io/badge/Blockchain-Solana-purple)](https://solana.com/)\\n[![TypeScript](https://img.shields.io/badge/TypeScript-5.8+-blue)](https://www.typescriptlang.org/)\\n[![React](https://img.shields.io/badge/React-18+-61dafb)](https://reactjs.org/)\\n\\n> **Create time capsules on the blockchain. Your memories, preserved forever on Solana.**\\n\\n---\\n\\n## What's This About?\\n\\nEver wanted to send a message to your future self? Or leave something for your friends to find later? That's what this is - but completely decentralized and stored forever on the Solana blockchain.\\n\\nYou create a time capsule with whatever you want (text, images, memories), set when it should unlock, and boom - it's permanently stored on-chain. No servers, no databases that can disappear, just pure blockchain magic.\\n\\n**🔗 Try it out**: [Live Demo](https://f6a8f851-9118-4811-bd33-12efa330536d.deployment.aimpact.dev/)\\n\\n---\\n\\n## How It Works\\n\\nPretty simple concept - you connect your Solana wallet, write what you want to preserve, pick when it should unlock, and it gets stored directly on the blockchain using Solana's memo program.\\n\\n### The Cool Parts\\n\\n- **Truly permanent**: Once it's on-chain, it's there forever\\n- **Global sync**: Everyone sees the same capsules worldwide\\n- **Time-locked**: Set exact unlock dates for future reveals\\n- **Social features**: React, tip, and discover others' capsules\\n- **Multiple types**: Public, private, mystery capsules with on-chain challenges\\n\\n### Tech Stack\\n\\n- React 18 + TypeScript for the frontend\\n- Solana Web3.js for blockchain interaction\\n- Tailwind CSS for styling\\n- Multiple wallet adapters (Phantom, Solflare, etc.)\\n- Direct on-chain storage using memo program\\n\\n---\\n\\n## Features\\n\\n### Core Functionality\\n\\n- **Time Capsules**: Create messages that unlock at specific future dates\\n- **Trail Capsules**: Connected series that unlock in sequence\\n- **Mystery Capsules**: Require on-chain verification to unlock (like holding specific tokens)\\n- **Social Features**: React with emojis, send SOL tips, view engagement\\n- **Shell Customization**: Different visual themes for your capsules\\n\\n### User Experience\\n\\n- Dark/light mode toggle\\n- Mobile-responsive design\\n- One-click wallet connection\\n- Real-time transaction status\\n- Ocean-themed animations"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "markdown"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 10,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "src/contexts/TimeCapsuleProvider.tsx-32"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "src/contexts/TimeCapsuleProvider.tsx"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 33
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 35
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "interface TimeCapsuleProviderProps {\\n  children: React.ReactNode;\\n}"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "tsx"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 11,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "package.json-0"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "package.json"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 1
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 60
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "{\\n  \\\"name\\\": \\\"solana-time-capsules\\\",\\n  \\\"private\\\": true,\\n  \\\"version\\\": \\\"0.0.1\\\",\\n  \\\"type\\\": \\\"module\\\",\\n  \\\"scripts\\\": {\\n    \\\"dev\\\": \\\"vite\\\",\\n    \\\"build\\\": \\\"tsc -b && vite build\\\",\\n    \\\"build:standard\\\": \\\"tsc -b && vite build\\\",\\n    \\\"build:ultra\\\": \\\"tsc -b && vite build --config vite.config.ultra.ts\\\",\\n    \\\"preview\\\": \\\"vite preview\\\",\\n    \\\"start\\\": \\\"vite preview --host --port 4173\\\"\\n  },\\n  \\\"dependencies\\\": {\\n    \\\"@fortawesome/free-regular-svg-icons\\\": \\\"^6.7.2\\\",\\n    \\\"@fortawesome/free-solid-svg-icons\\\": \\\"^6.7.2\\\",\\n    \\\"@fortawesome/react-fontawesome\\\": \\\"^0.2.2\\\",\\n    \\\"@project-serum/anchor\\\": \\\"^0.26.0\\\",\\n    \\\"@solana/spl-memo\\\": \\\"^0.2.5\\\",\\n    \\\"@solana/wallet-adapter-base\\\": \\\"^0.9.26\\\",\\n    \\\"@solana/wallet-adapter-phantom\\\": \\\"^0.9.24\\\",\\n    \\\"@solana/wallet-adapter-react\\\": \\\"^0.15.38\\\",\\n    \\\"@solana/wallet-adapter-react-ui\\\": \\\"^0.9.38\\\",\\n    \\\"@solana/wallet-adapter-wallets\\\": \\\"^0.19.36\\\",\\n    \\\"@solana/web3.js\\\": \\\"^1.98.2\\\",\\n    \\\"@types/qrcode\\\": \\\"^1.5.5\\\",\\n    \\\"@types/react-router-dom\\\": \\\"^5.3.3\\\",\\n    \\\"borsh\\\": \\\"^2.0.0\\\",\\n    \\\"clsx\\\": \\\"^2.1.1\\\",\\n    \\\"framer-motion\\\": \\\"^12.16.0\\\",\\n    \\\"lucide-react\\\": \\\"^0.511.0\\\",\\n    \\\"qrcode\\\": \\\"^1.5.4\\\",\\n    \\\"react\\\": \\\"^18.2.0\\\",\\n    \\\"react-dom\\\": \\\"^18.2.0\\\",\\n    \\\"react-qr-code\\\": \\\"^2.0.15\\\",\\n    \\\"react-router-dom\\\": \\\"^7.6.2\\\",\\n    \\\"recharts\\\": \\\"^2.15.3\\\",\\n    \\\"solana-time-capsules\\\": \\\"file:\\\",\\n    \\\"tailwind-merge\\\": \\\"^3.3.0\\\",\\n    \\\"@tailwindcss/postcss\\\": \\\"^4.1.10\\\",\\n    \\\"tailwindcss\\\": \\\"^4.1.10\\\",\\n    \\\"tw-animate-css\\\": \\\"^1.3.0\\\"\\n  },\\n  \\\"devDependencies\\\": {\\n    \\\"@babel/core\\\": \\\"^7.27.4\\\",\\n    \\\"@babel/plugin-transform-react-jsx\\\": \\\"^7.27.1\\\",\\n    \\\"@types/node\\\": \\\"^22.15.21\\\",\\n    \\\"@types/react\\\": \\\"^18.2.55\\\",\\n    \\\"@types/react-dom\\\": \\\"^18.2.19\\\",\\n    \\\"@vitejs/plugin-react\\\": \\\"^4.4.1\\\",\\n\\n    \\\"autoprefixer\\\": \\\"^10.4.21\\\",\\n    \\\"globals\\\": \\\"^16.0.0\\\",\\n    \\\"postcss\\\": \\\"^8.5.3\\\",\\n    \\\"typescript\\\": \\\"~5.8.3\\\",\\n    \\\"vite\\\": \\\"^6.3.5\\\",\\n    \\\"vite-plugin-node-polyfills\\\": \\\"^0.23.0\\\"\\n  },\\n  \\\"packageManager\\\": \\\"pnpm@10.10.0\\\"\\n}"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "json"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 12,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "README.md-50"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "README.md"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 51
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 110
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "- **Social Features**: React with emojis, send SOL tips, view engagement\\n- **Shell Customization**: Different visual themes for your capsules\\n\\n### User Experience\\n\\n- Dark/light mode toggle\\n- Mobile-responsive design\\n- One-click wallet connection\\n- Real-time transaction status\\n- Ocean-themed animations\\n- QR codes for easy sharing\\n\\n---\\n\\n## Setup & Development\\n\\n### Prerequisites\\n\\n- Node.js 18+\\n- PNPM\\n- A Solana wallet\\n\\n### Quick Start\\n\\n```bash\\ngit clone https://github.com/hash88o/Timecapsules-onchain.git\\ncd solana-time-capsules\\npnpm install\\npnpm dev\\n```\\n\\n### Environment Variables\\n\\nCreate a `.env.local` file:\\n\\n```bash\\nGITHUB_TOKEN=your_token_here\\nGITHUB_REPO=username/repo\\nGIST_ID=your_gist_id\\nNODE_ENV=development\\n```\\n\\n---\\n\\n## Deploy\\n\\nDeploy to Vercel:\\n\\n```bash\\nnpm i -g vercel\\nvercel --prod\\n```\\n\\nSet these environment variables in your deployment:\\n\\n- `GITHUB_TOKEN` - GitHub API token\\n- `GIST_ID` - Storage identifier\\n- `GITHUB_REPO` - Repository name\\n- `NODE_ENV` - Environment mode\\n"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "markdown"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 13,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "tsconfig.node.json-0"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "tsconfig.node.json"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 1
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 26
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "{\\n  \\\"compilerOptions\\\": {\\n    \\\"tsBuildInfoFile\\\": \\\"./node_modules/.tmp/tsconfig.node.tsbuildinfo\\\",\\n    \\\"target\\\": \\\"ES2022\\\",\\n    \\\"lib\\\": [\\\"ES2023\\\"],\\n    \\\"module\\\": \\\"ESNext\\\",\\n    \\\"skipLibCheck\\\": true,\\n\\n    /* Bundler mode */\\n    \\\"moduleResolution\\\": \\\"bundler\\\",\\n    \\\"allowImportingTsExtensions\\\": true,\\n    \\\"verbatimModuleSyntax\\\": false,\\n    \\\"moduleDetection\\\": \\\"force\\\",\\n    \\\"noEmit\\\": true,\\n\\n    /* Linting */\\n    \\\"strict\\\": true,\\n    \\\"noUnusedLocals\\\": true,\\n    \\\"noUnusedParameters\\\": true,\\n    \\\"erasableSyntaxOnly\\\": true,\\n    \\\"noFallthroughCasesInSwitch\\\": true,\\n    \\\"noUncheckedSideEffectImports\\\": true,\\n  },\\n  \\\"include\\\": [\\\"vite.config.ts\\\"]\\n}\\n"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "json"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 14,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "src/components/TipModal.tsx-4"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "src/components/TipModal.tsx"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 5
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 8
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "interface TipModalProps {\\n  onTip: (amount: number) => void;\\n  onClose: () => void;\\n}"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "tsx"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 15,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "src/contexts/ThemeContext.tsx-4"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "src/contexts/ThemeContext.tsx"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 5
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 9
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "interface ThemeContextType {\\n  theme: Theme;\\n  isDark: boolean;\\n  toggleTheme: () => void;\\n}"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "tsx"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 16,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "index.html-0"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "index.html"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 1
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 14
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "\\x3C!DOCTYPE html>\\n\\x3Chtml lang=\\\"en\\\">\\n  \\x3Chead>\\n    \\x3Cmeta charset=\\\"UTF-8\\\" />\\n    \\x3Clink rel=\\\"icon\\\" href=\\\"favicon.ico\\\" />\\n    \\x3Cmeta name=\\\"viewport\\\" content=\\\"width=device-width, initial-scale=1.0\\\" />\\n    \\x3Ctitle>Solana Time Capsules\\x3C/title>\\n  \\x3C/head>\\n  \\x3Cbody>\\n    \\x3Cdiv id=\\\"root\\\">\\x3C/div>\\n    \\x3Cscript type=\\\"module\\\" src=\\\"/src/main.tsx\\\">\\x3C/script>\\n  \\x3C/body>\\n\\x3C/html>\\n"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "html"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 17,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "src/contexts/TimeCapsuleProvider.tsx-36"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "src/contexts/TimeCapsuleProvider.tsx"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 37
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 386
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "function TimeCapsuleProvider({ children }: TimeCapsuleProviderProps) {\\n  const { \\n    capsules: hookCapsules, \\n    loading: hookLoading, \\n    createCapsule, \\n    fetchCapsules: rawFetchCapsules, \\n    addReaction,\\n    getBalance,\\n    verifyOnChainAction,\\n    updateCapsule,\\n    incrementViews,\\n    processInheritance\\n  } = useTimeCapsuleHook();\\n  const [capsules, setCapsules] = useState\\x3CTimeCapsule[]>([]);\\n  const [loading, setLoading] = useState(true);\\n  const [backgroundLoading, setBackgroundLoading] = useState(false);\\n  const [initialized, setInitialized] = useState(false);\\n  const [currentInterval, setCurrentInterval] = useState(INITIAL_REFRESH_INTERVAL);\\n  const lastFetchTime = useRef\\x3Cnumber>(0);\\n  const lastFocusRefetch = useRef\\x3Cnumber>(0);\\n  const consecutiveErrors = useRef(0);\\n  const isRefreshing = useRef(false);\\n\\n  \\n  const fetchCapsulesInBackground = useCallback(async () => {\\n    if (isRefreshing.current) return;\\n    \\n    isRefreshing.current = true;\\n    setBackgroundLoading(true);\\n    \\n    try {\\n      console.log('📡 Fetching real capsules from blockchain...');\\n      const data = await rawFetchCapsules();\\n      \\n      \\n      setCapsules(prevCapsules => {\\n        const mergedCapsules = [...prevCapsules];\\n        let hasNewCapsules = false;\\n        \\n        data.forEach(newCapsule => {\\n          const existingIndex = mergedCapsules.findIndex(c => c.id === newCapsule.id);\\n          if (existingIndex >= 0) {\\n            \\n            if (JSON.stringify(mergedCapsules[existingIndex]) !== JSON.stringify(newCapsule)) {\\n              mergedCapsules[existingIndex] = newCapsule;\\n            }\\n          } else {\\n            \\n            if (!newCapsule.id.startsWith('demo-capsule-')) {\\n              mergedCapsules.push(newCapsule);\\n              hasNewCapsules = true;\\n            }\\n          }\\n        });\\n        \\n        if (hasNewCapsules) {\\n          console.log(`✅ Added ${data.filter(c => !c.id.startsWith('demo-capsule-')).length} real capsules from blockchain`);\\n        }\\n        \\n        return mergedCapsules.sort((a, b) => b.createdAt - a.createdAt);\\n      });\\n      \\n      \\n      consecutiveErrors.current = 0;\\n      setCurrentInterval(INITIAL_REFRESH_INTERVAL);\\n      \\n    } catch (error) {\\n      console.warn('Background fetch failed:', error);\\n      consecutiveErrors.current++;\\n      const newInterval = Math.min(\\n        currentInterval * BACKOFF_MULTIPLIER,\\n        MAX_REFRESH_INTERVAL\\n      );\\n      setCurrentInterval(newInterval);\\n    } finally {\\n      isRefreshing.current = false;\\n      setBackgroundLoading(false);\\n    }\\n  }, [rawFetchCapsules, currentInterval]);\\n\\n  \\n  useEffect(() => {\\n    if (!initialized) {\\n      console.log('🚀 Loading demo capsules immediately...');\\n      \\n      // Demo capsules for immediate display\\n      const demoCapsules: TimeCapsule[] = [\\n        {\\n          id: 'demo-capsule-1',\\n          title: 'Welcome to Time Capsules! 🎉',\\n          message: 'This is a demo time capsule to show how the system works! You can like it, view it, and see how the interface responds. Real capsules from the blockchain will load in the background.',\\n          unlockTimestamp: Date.now() - 86400000, // Unlocked (1 day ago)\\n          capsuleType: 'Public',\\n          creatorAddress: 'DemoCreator1111111111111111111111111111111',\\n          createdAt: Date.now() - 86400000,\\n          views: 42,\\n          reactions: {\\n            'User1111111111111111111111111111111111111': '❤️',\\n            'User2222222222222222222222222222222222222': '❤️',\\n            'User3333333333333333333333333333333333333': '❤️',\\n          },\\n          tips: { totalAmount: 0, tipCount: 0 },\\n          mood: {\\n            emoji: '🎉',\\n            category: 'excited',\\n            intensity: 5\\n          }\\n        },\\n        {\\n          id: 'demo-capsule-2',\\n          title: 'Future Message ⏰',\\n          message: 'This capsule will unlock in the future. Try liking it and see how the heart animation works! The like count will persist even after you refresh the page.',\\n          unlockTimestamp: Date.now() + 3600000, // Unlocks in 1 hour\\n          capsuleType: 'Public',\\n          creatorAddress: 'DemoCreator2222222222222222222222222222222',\\n          createdAt: Date.now() - 3600000,\\n          views: 15,\\n          reactions: {\\n            'User1111111111111111111111111111111111111': '❤️',\\n          },\\n          tips: { totalAmount: 0, tipCount: 0 },\\n          mood: {\\n            emoji: '⏰',\\n            category: 'hopeful',\\n            intensity: 3\\n          }\\n        },\\n        {\\n          id: 'demo-capsule-3',\\n          title: 'Interactive Demo 💫',\\n          message: 'Click the heart icons to like this capsule! The system now properly tracks likes and shows them consistently across all heart icons. Try refreshing the page - your likes will persist!',\\n          unlockTimestamp: Date.now() - 7200000, // Unlocked (2 hours ago)\\n          capsuleType: 'Public',\\n          creatorAddress: 'DemoCreator3333333333333333333333333333333',\\n          createdAt: Date.now() - 7200000,\\n          views: 28,\\n          reactions: {\\n            'User4444444444444444444444444444444444444': '❤️',\\n            'User5555555555555555555555555555555555555': '❤️',\\n          },\\n          tips: { totalAmount: 0, tipCount: 0 },\\n          mood: {\\n            emoji: '💫',\\n            category: 'adventurous',\\n            intensity: 4\\n          }\\n        }\\n      ];\\n\\n\\n      setCapsules(demoCapsules);\\n      setLoading(false);\\n      setInitialized(true);\\n      \\n      console.log('✅ Demo capsules loaded immediately!');\\n      \\n      setTimeout(() => {\\n        console.log('🔄 Starting background fetch of real capsules...');\\n        import('../services/transactionRegistry').then(({ transactionRegistry }) => {\\n          const registryStats = transactionRegistry.getStats();\\n          console.log('📊 Registry status:', registryStats);\\n        });\\n        \\n        fetchCapsulesInBackground();\\n      }, 100);  \\n    }\\n  }, [initialized, fetchCapsulesInBackground]);\\n\\n  const fetchCapsules = useCallback(async (walletAddress?: string): Promise\\x3CTimeCapsule[]> => {\\n    const now = Date.now();\\n    const timeSinceLastFetch = now - lastFetchTime.current;\\n\\n    \\n    if (timeSinceLastFetch \\x3C MIN_RETRY_DELAY) {\\n      console.log(`Skipping fetch - too soon (${timeSinceLastFetch}ms since last fetch)`);\\n      return capsules;\\n    }\\n\\n    \\n    if (isRefreshing.current) {\\n      console.log('Fetch already in progress, skipping');\\n      return capsules; \\n    }\\n\\n    isRefreshing.current = true;\\n\\n    try {\\n      lastFetchTime.current = now;\\n      const data = await rawFetchCapsules(walletAddress);\\n      \\n      \\n      consecutiveErrors.current = 0;\\n      setCurrentInterval(INITIAL_REFRESH_INTERVAL);\\n\\n      setCapsules(prevCapsules => {\\n        const mergedCapsules = [...prevCapsules];\\n        \\n        \\n        data.forEach(newCapsule => {\\n          const existingIndex = mergedCapsules.findIndex(c => c.id === newCapsule.id);\\n          if (existingIndex >= 0) {\\n        \\n            if (JSON.stringify(mergedCapsules[existingIndex]) !== JSON.stringify(newCapsule)) {\\n              mergedCapsules[existingIndex] = newCapsule;\\n            }\\n          } else {\\n            mergedCapsules.push(newCapsule);\\n          }\\n        });\\n        \\n        return mergedCapsules.sort((a, b) => b.createdAt - a.createdAt);\\n      });\\n      return data;\\n    } catch (error) {\\n      \\n      consecutiveErrors.current++;\\n      const newInterval = Math.min(\\n        currentInterval * BACKOFF_MULTIPLIER,\\n        MAX_REFRESH_INTERVAL\\n      );\\n      setCurrentInterval(newInterval);\\n      \\n      console.warn(`Fetch error (attempt ${consecutiveErrors.current}). Next retry in ${newInterval/1000}s`, error);\\n      return capsules;\\n    } finally {\\n      isRefreshing.current = false;\\n    }\\n  }, [rawFetchCapsules, currentInterval, capsules]);\\n\\n  \\n  const refetch = useCallback(async () => {\\n    await fetchCapsules();\\n  }, [fetchCapsules]);\\n\\n\\n  useEffect(() => {\\n    const handleVisibilityChange = () => {\\n      if (document.visibilityState === 'visible' && initialized) {\\n        console.log('Page became visible, triggering refetch');\\n        refetch();\\n      }\\n    };\\n\\n    const handleOnline = () => {\\n      if (initialized) {\\n        console.log('Network connection restored, triggering refetch');\\n        refetch();\\n      }\\n    };\\n\\n    const handleFocus = () => {\\n      if (initialized) {\\n        const now = Date.now();\\n        const timeSinceLastFocusRefetch = now - lastFocusRefetch.current;\\n        \\n        if (timeSinceLastFocusRefetch >= FOCUS_REFETCH_COOLDOWN) {\\n          console.log('Window focused, triggering refetch');\\n          lastFocusRefetch.current = now;\\n          refetch();\\n        } else {\\n          console.log(`Window focused, but skipping refetch (cooldown: ${Math.ceil((FOCUS_REFETCH_COOLDOWN - timeSinceLastFocusRefetch) / 1000)}s remaining)`);\\n        }\\n      }\\n    };\\n\\n    \\n    if (initialized) {\\n      document.addEventListener('visibilitychange', handleVisibilityChange);\\n      window.addEventListener('online', handleOnline);\\n      window.addEventListener('focus', handleFocus);\\n    }\\n\\n  \\n    return () => {\\n      document.removeEventListener('visibilitychange', handleVisibilityChange);\\n      window.removeEventListener('online', handleOnline);\\n      window.removeEventListener('focus', handleFocus);\\n    };\\n  }, [initialized, refetch]);\\n\\n\\n  useEffect(() => {\\n    if (!initialized) return;\\n    \\n    const interval = setInterval(() => {\\n      fetchCapsulesInBackground(); \\n    }, currentInterval);\\n    \\n    return () => clearInterval(interval);\\n  }, [initialized, currentInterval, fetchCapsulesInBackground]);\\n\\n  \\n  useEffect(() => {\\n    if (hookCapsules.length > 0) {\\n      setCapsules(prevCapsules => {\\n        const mergedCapsules = [...prevCapsules];\\n        let hasChanges = false;\\n        \\n        hookCapsules.forEach(newCapsule => {\\n          const existingIndex = mergedCapsules.findIndex(c => c.id === newCapsule.id);\\n          if (existingIndex >= 0) {\\n            if (JSON.stringify(mergedCapsules[existingIndex]) !== JSON.stringify(newCapsule)) {\\n              mergedCapsules[existingIndex] = newCapsule;\\n              hasChanges = true;\\n            }\\n          } else {\\n            if (!newCapsule.id.startsWith('demo-capsule-')) {\\n              mergedCapsules.push(newCapsule);\\n              hasChanges = true;\\n            }\\n          }\\n        });\\n        \\n        return hasChanges ? mergedCapsules.sort((a, b) => b.createdAt - a.createdAt) : prevCapsules;\\n      });\\n    }\\n  }, [hookCapsules]);\\n\\n  useEffect(() => {\\n      \\n    ShellService.injectHook({ \\n      capsules, \\n      loading, \\n      createCapsule, \\n      fetchCapsules, \\n      addReaction,\\n      getBalance,\\n      verifyOnChainAction,\\n      updateCapsule,\\n      incrementViews,\\n      processInheritance\\n    });\\n  }, [capsules, loading, createCapsule, fetchCapsules, addReaction, getBalance, verifyOnChainAction, updateCapsule, incrementViews, processInheritance]);\\n\\n  const contextValue = {\\n    capsules,\\n    loading,\\n    backgroundLoading,\\n    createCapsule,\\n    fetchCapsules,\\n    addReaction,\\n    refetch\\n  };\\n\\n  return (\\n    \\x3CTimeCapsuleContext.Provider value={contextValue}>\\n      {children}\\n    \\x3C/TimeCapsuleContext.Provider>\\n  );\\n}"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "tsx"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 18,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "src/contexts/ThemeContext.tsx-20"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "src/contexts/ThemeContext.tsx"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 21
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 23
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "interface ThemeProviderProps {\\n  children: React.ReactNode;\\n}"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "tsx"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 19,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "tailwind.config.js-0"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "tailwind.config.js"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 1
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 60
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "/** @type {import('tailwindcss').Config} */\\nexport default {\\n    content: [\\n        \\\"./index.html\\\",\\n        \\\"./src/**/*.{js,ts,jsx,tsx}\\\",\\n    ],\\n    darkMode: 'class',\\n    theme: {\\n        extend: {\\n            fontFamily: {\\n                sans: ['Inter', 'system-ui', 'sans-serif'],\\n            },\\n            colors: {\\n                gray: {\\n                    50: '#fafafa',\\n                    100: '#f5f5f5',\\n                    200: '#e5e5e5',\\n                    300: '#d4d4d4',\\n                    400: '#a3a3a3',\\n                    500: '#737373',\\n                    600: '#525252',\\n                    700: '#404040',\\n                    800: '#262626',\\n                    900: '#171717',\\n                },\\n            },\\n            animation: {\\n                'float': 'float 6s ease-in-out infinite',\\n                'pulse-slow': 'pulse 3s ease-in-out infinite',\\n                'bounce-slow': 'bounce 2s infinite',\\n            },\\n            keyframes: {\\n                float: {\\n                    '0%, 100%': { transform: 'translateY(0px)' },\\n                    '50%': { transform: 'translateY(-10px)' },\\n                }\\n            },\\n            backdropBlur: {\\n                xs: '2px',\\n            },\\n            backgroundImage: {\\n                'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',\\n                'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',\\n            },\\n        },\\n    },\\n    plugins: [\\n        function ({ addUtilities }) {\\n            addUtilities({\\n                '.line-clamp-2': {\\n                    overflow: 'hidden',\\n                    display: '-webkit-box',\\n                    '-webkit-box-orient': 'vertical',\\n                    '-webkit-line-clamp': '2',\\n                },\\n                '.line-clamp-3': {\\n                    overflow: 'hidden',\\n                    display: '-webkit-box',\\n                    '-webkit-box-orient': 'vertical',\\n                    '-webkit-line-clamp': '3',"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "javascript"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 20,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "tsconfig.app.json-0"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "tsconfig.app.json"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 1
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 38
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "{\\n  \\\"compilerOptions\\\": {\\n    \\\"tsBuildInfoFile\\\": \\\"./node_modules/.tmp/tsconfig.app.tsbuildinfo\\\",\\n    \\\"target\\\": \\\"ES2020\\\",\\n    \\\"useDefineForClassFields\\\": true,\\n    \\\"lib\\\": [\\\"ES2020\\\", \\\"DOM\\\", \\\"DOM.Iterable\\\"],\\n    \\\"module\\\": \\\"ESNext\\\",\\n    \\\"skipLibCheck\\\": true,\\n\\n    /* Bundler mode */\\n    \\\"moduleResolution\\\": \\\"bundler\\\",\\n    \\\"allowImportingTsExtensions\\\": true,\\n    \\\"isolatedModules\\\": true,\\n    \\\"moduleDetection\\\": \\\"force\\\",\\n    \\\"noEmit\\\": true,\\n    \\\"jsx\\\": \\\"react-jsx\\\",\\n\\n    /* Linting */\\n    \\\"strict\\\": true,\\n    \\\"noUnusedLocals\\\": false,\\n    \\\"noUnusedParameters\\\": false,\\n    \\\"noFallthroughCasesInSwitch\\\": true,\\n\\n    /* Path mapping */\\n    \\\"baseUrl\\\": \\\".\\\",\\n    \\\"paths\\\": {\\n      \\\"@/*\\\": [\\\"./src/*\\\"]\\n    },\\n\\n    /* Additional options */\\n    \\\"esModuleInterop\\\": true,\\n    \\\"allowSyntheticDefaultImports\\\": true,\\n    \\\"forceConsistentCasingInFileNames\\\": true,\\n    \\\"resolveJsonModule\\\": true\\n  },\\n  \\\"include\\\": [\\\"src\\\"]\\n}\\n"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "json"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 21,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "src/components/ShellSelector.tsx-8"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "src/components/ShellSelector.tsx"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 9
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 12
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "interface ShellSelectorProps {\\n  onSelect: (shell: Shell) => void;\\n  selectedShellId?: string;\\n}"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "tsx"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 22,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "src/contexts/ShellManagerContext.tsx-19"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "src/contexts/ShellManagerContext.tsx"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 20
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 22
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "interface ShellManagerProviderProps {\\n  children: ReactNode;\\n}"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "tsx"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 23,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "src/components/WalletAdapter.tsx-7"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "src/components/WalletAdapter.tsx"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 8
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 10
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "interface WalletAdapterProps {\\n  children: React.ReactNode;\\n}"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "tsx"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 24,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "src/hooks/useToast.ts-4"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "src/hooks/useToast.ts"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 5
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 9
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "interface ToastState {\\n  isVisible: boolean;\\n  message: string;\\n  type: ToastType;\\n}"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "typescript"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 25,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "vite.config.ultra.ts-0"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "vite.config.ultra.ts"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 1
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 60
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "/// \\x3Creference types=\\\"vite/client\\\" />\\nimport { defineConfig } from 'vite'\\nimport react from '@vitejs/plugin-react'\\n// import tailwindcss from '@tailwindcss/vite' // Removed - using PostCSS instead\\nimport { nodePolyfills } from 'vite-plugin-node-polyfills'\\n\\n// Ultra optimized config for Solana + React on aimpact.dev\\nexport default defineConfig({\\n  plugins: [\\n    react({\\n      jsxRuntime: 'automatic',\\n      jsxImportSource: 'react'\\n    }),\\n    // tailwindcss(), // Removed - using PostCSS instead\\n    nodePolyfills({\\n      protocolImports: true,\\n      globals: {\\n        Buffer: true,\\n        global: true,\\n        process: true,\\n      },\\n      include: [\\n        'buffer', \\n        'process', \\n        'util', \\n        'stream', \\n        'crypto',\\n        'events',\\n        'url',\\n        'querystring',\\n        'path',\\n        'os',\\n        'http',\\n        'https',\\n        'assert',\\n        'fs'\\n      ]\\n    })\\n  ],\\n\\n  base: './',  // Very important for relative path resolution on aimpact.dev\\n\\n  define: {\\n    global: 'globalThis',\\n    'process.env.NODE_ENV': '\\\"production\\\"',\\n    'process.env.NODE_DEBUG': 'undefined',\\n    'process.version': '\\\"v18.0.0\\\"',\\n    __DEV__: false\\n  },\\n\\n  resolve: {\\n    alias: {\\n      '@': '/src'\\n    }\\n  },\\n\\n  optimizeDeps: {\\n    include: [\\n      'react',\\n      'react-dom',"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "typescript"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 26,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "README.md-100"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "README.md"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 101
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 120
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "vercel --prod\\n```\\n\\nSet these environment variables in your deployment:\\n\\n- `GITHUB_TOKEN` - GitHub API token\\n- `GIST_ID` - Storage identifier\\n- `GITHUB_REPO` - Repository name\\n- `NODE_ENV` - Environment mode\\n\\n---\\n\\n## Built with AImpact.dev\\n\\nThis was built for the AImpact challenge - pretty wild that you can create a full blockchain app just by describing what you want.\\n\\n---\\n\\n**Fun project that happens to be built really well. Check it out if you want to preserve some memories.**\\n"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "markdown"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                }
+                            ],
+                            "o": 0
+                        },
+                        {
+                            "t": 9,
+                            "i": 27,
+                            "a": [
+                                {
+                                    "t": 10,
+                                    "i": 28,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "src/contexts/TimeCapsuleProvider.tsx-36"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "src/contexts/TimeCapsuleProvider.tsx"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 37
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 386
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "function TimeCapsuleProvider({ children }: TimeCapsuleProviderProps) {\\n  const { \\n    capsules: hookCapsules, \\n    loading: hookLoading, \\n    createCapsule, \\n    fetchCapsules: rawFetchCapsules, \\n    addReaction,\\n    getBalance,\\n    verifyOnChainAction,\\n    updateCapsule,\\n    incrementViews,\\n    processInheritance\\n  } = useTimeCapsuleHook();\\n  const [capsules, setCapsules] = useState\\x3CTimeCapsule[]>([]);\\n  const [loading, setLoading] = useState(true);\\n  const [backgroundLoading, setBackgroundLoading] = useState(false);\\n  const [initialized, setInitialized] = useState(false);\\n  const [currentInterval, setCurrentInterval] = useState(INITIAL_REFRESH_INTERVAL);\\n  const lastFetchTime = useRef\\x3Cnumber>(0);\\n  const lastFocusRefetch = useRef\\x3Cnumber>(0);\\n  const consecutiveErrors = useRef(0);\\n  const isRefreshing = useRef(false);\\n\\n  \\n  const fetchCapsulesInBackground = useCallback(async () => {\\n    if (isRefreshing.current) return;\\n    \\n    isRefreshing.current = true;\\n    setBackgroundLoading(true);\\n    \\n    try {\\n      console.log('📡 Fetching real capsules from blockchain...');\\n      const data = await rawFetchCapsules();\\n      \\n      \\n      setCapsules(prevCapsules => {\\n        const mergedCapsules = [...prevCapsules];\\n        let hasNewCapsules = false;\\n        \\n        data.forEach(newCapsule => {\\n          const existingIndex = mergedCapsules.findIndex(c => c.id === newCapsule.id);\\n          if (existingIndex >= 0) {\\n            \\n            if (JSON.stringify(mergedCapsules[existingIndex]) !== JSON.stringify(newCapsule)) {\\n              mergedCapsules[existingIndex] = newCapsule;\\n            }\\n          } else {\\n            \\n            if (!newCapsule.id.startsWith('demo-capsule-')) {\\n              mergedCapsules.push(newCapsule);\\n              hasNewCapsules = true;\\n            }\\n          }\\n        });\\n        \\n        if (hasNewCapsules) {\\n          console.log(`✅ Added ${data.filter(c => !c.id.startsWith('demo-capsule-')).length} real capsules from blockchain`);\\n        }\\n        \\n        return mergedCapsules.sort((a, b) => b.createdAt - a.createdAt);\\n      });\\n      \\n      \\n      consecutiveErrors.current = 0;\\n      setCurrentInterval(INITIAL_REFRESH_INTERVAL);\\n      \\n    } catch (error) {\\n      console.warn('Background fetch failed:', error);\\n      consecutiveErrors.current++;\\n      const newInterval = Math.min(\\n        currentInterval * BACKOFF_MULTIPLIER,\\n        MAX_REFRESH_INTERVAL\\n      );\\n      setCurrentInterval(newInterval);\\n    } finally {\\n      isRefreshing.current = false;\\n      setBackgroundLoading(false);\\n    }\\n  }, [rawFetchCapsules, currentInterval]);\\n\\n  \\n  useEffect(() => {\\n    if (!initialized) {\\n      console.log('🚀 Loading demo capsules immediately...');\\n      \\n      // Demo capsules for immediate display\\n      const demoCapsules: TimeCapsule[] = [\\n        {\\n          id: 'demo-capsule-1',\\n          title: 'Welcome to Time Capsules! 🎉',\\n          message: 'This is a demo time capsule to show how the system works! You can like it, view it, and see how the interface responds. Real capsules from the blockchain will load in the background.',\\n          unlockTimestamp: Date.now() - 86400000, // Unlocked (1 day ago)\\n          capsuleType: 'Public',\\n          creatorAddress: 'DemoCreator1111111111111111111111111111111',\\n          createdAt: Date.now() - 86400000,\\n          views: 42,\\n          reactions: {\\n            'User1111111111111111111111111111111111111': '❤️',\\n            'User2222222222222222222222222222222222222': '❤️',\\n            'User3333333333333333333333333333333333333': '❤️',\\n          },\\n          tips: { totalAmount: 0, tipCount: 0 },\\n          mood: {\\n            emoji: '🎉',\\n            category: 'excited',\\n            intensity: 5\\n          }\\n        },\\n        {\\n          id: 'demo-capsule-2',\\n          title: 'Future Message ⏰',\\n          message: 'This capsule will unlock in the future. Try liking it and see how the heart animation works! The like count will persist even after you refresh the page.',\\n          unlockTimestamp: Date.now() + 3600000, // Unlocks in 1 hour\\n          capsuleType: 'Public',\\n          creatorAddress: 'DemoCreator2222222222222222222222222222222',\\n          createdAt: Date.now() - 3600000,\\n          views: 15,\\n          reactions: {\\n            'User1111111111111111111111111111111111111': '❤️',\\n          },\\n          tips: { totalAmount: 0, tipCount: 0 },\\n          mood: {\\n            emoji: '⏰',\\n            category: 'hopeful',\\n            intensity: 3\\n          }\\n        },\\n        {\\n          id: 'demo-capsule-3',\\n          title: 'Interactive Demo 💫',\\n          message: 'Click the heart icons to like this capsule! The system now properly tracks likes and shows them consistently across all heart icons. Try refreshing the page - your likes will persist!',\\n          unlockTimestamp: Date.now() - 7200000, // Unlocked (2 hours ago)\\n          capsuleType: 'Public',\\n          creatorAddress: 'DemoCreator3333333333333333333333333333333',\\n          createdAt: Date.now() - 7200000,\\n          views: 28,\\n          reactions: {\\n            'User4444444444444444444444444444444444444': '❤️',\\n            'User5555555555555555555555555555555555555': '❤️',\\n          },\\n          tips: { totalAmount: 0, tipCount: 0 },\\n          mood: {\\n            emoji: '💫',\\n            category: 'adventurous',\\n            intensity: 4\\n          }\\n        }\\n      ];\\n\\n\\n      setCapsules(demoCapsules);\\n      setLoading(false);\\n      setInitialized(true);\\n      \\n      console.log('✅ Demo capsules loaded immediately!');\\n      \\n      setTimeout(() => {\\n        console.log('🔄 Starting background fetch of real capsules...');\\n        import('../services/transactionRegistry').then(({ transactionRegistry }) => {\\n          const registryStats = transactionRegistry.getStats();\\n          console.log('📊 Registry status:', registryStats);\\n        });\\n        \\n        fetchCapsulesInBackground();\\n      }, 100);  \\n    }\\n  }, [initialized, fetchCapsulesInBackground]);\\n\\n  const fetchCapsules = useCallback(async (walletAddress?: string): Promise\\x3CTimeCapsule[]> => {\\n    const now = Date.now();\\n    const timeSinceLastFetch = now - lastFetchTime.current;\\n\\n    \\n    if (timeSinceLastFetch \\x3C MIN_RETRY_DELAY) {\\n      console.log(`Skipping fetch - too soon (${timeSinceLastFetch}ms since last fetch)`);\\n      return capsules;\\n    }\\n\\n    \\n    if (isRefreshing.current) {\\n      console.log('Fetch already in progress, skipping');\\n      return capsules; \\n    }\\n\\n    isRefreshing.current = true;\\n\\n    try {\\n      lastFetchTime.current = now;\\n      const data = await rawFetchCapsules(walletAddress);\\n      \\n      \\n      consecutiveErrors.current = 0;\\n      setCurrentInterval(INITIAL_REFRESH_INTERVAL);\\n\\n      setCapsules(prevCapsules => {\\n        const mergedCapsules = [...prevCapsules];\\n        \\n        \\n        data.forEach(newCapsule => {\\n          const existingIndex = mergedCapsules.findIndex(c => c.id === newCapsule.id);\\n          if (existingIndex >= 0) {\\n        \\n            if (JSON.stringify(mergedCapsules[existingIndex]) !== JSON.stringify(newCapsule)) {\\n              mergedCapsules[existingIndex] = newCapsule;\\n            }\\n          } else {\\n            mergedCapsules.push(newCapsule);\\n          }\\n        });\\n        \\n        return mergedCapsules.sort((a, b) => b.createdAt - a.createdAt);\\n      });\\n      return data;\\n    } catch (error) {\\n      \\n      consecutiveErrors.current++;\\n      const newInterval = Math.min(\\n        currentInterval * BACKOFF_MULTIPLIER,\\n        MAX_REFRESH_INTERVAL\\n      );\\n      setCurrentInterval(newInterval);\\n      \\n      console.warn(`Fetch error (attempt ${consecutiveErrors.current}). Next retry in ${newInterval/1000}s`, error);\\n      return capsules;\\n    } finally {\\n      isRefreshing.current = false;\\n    }\\n  }, [rawFetchCapsules, currentInterval, capsules]);\\n\\n  \\n  const refetch = useCallback(async () => {\\n    await fetchCapsules();\\n  }, [fetchCapsules]);\\n\\n\\n  useEffect(() => {\\n    const handleVisibilityChange = () => {\\n      if (document.visibilityState === 'visible' && initialized) {\\n        console.log('Page became visible, triggering refetch');\\n        refetch();\\n      }\\n    };\\n\\n    const handleOnline = () => {\\n      if (initialized) {\\n        console.log('Network connection restored, triggering refetch');\\n        refetch();\\n      }\\n    };\\n\\n    const handleFocus = () => {\\n      if (initialized) {\\n        const now = Date.now();\\n        const timeSinceLastFocusRefetch = now - lastFocusRefetch.current;\\n        \\n        if (timeSinceLastFocusRefetch >= FOCUS_REFETCH_COOLDOWN) {\\n          console.log('Window focused, triggering refetch');\\n          lastFocusRefetch.current = now;\\n          refetch();\\n        } else {\\n          console.log(`Window focused, but skipping refetch (cooldown: ${Math.ceil((FOCUS_REFETCH_COOLDOWN - timeSinceLastFocusRefetch) / 1000)}s remaining)`);\\n        }\\n      }\\n    };\\n\\n    \\n    if (initialized) {\\n      document.addEventListener('visibilitychange', handleVisibilityChange);\\n      window.addEventListener('online', handleOnline);\\n      window.addEventListener('focus', handleFocus);\\n    }\\n\\n  \\n    return () => {\\n      document.removeEventListener('visibilitychange', handleVisibilityChange);\\n      window.removeEventListener('online', handleOnline);\\n      window.removeEventListener('focus', handleFocus);\\n    };\\n  }, [initialized, refetch]);\\n\\n\\n  useEffect(() => {\\n    if (!initialized) return;\\n    \\n    const interval = setInterval(() => {\\n      fetchCapsulesInBackground(); \\n    }, currentInterval);\\n    \\n    return () => clearInterval(interval);\\n  }, [initialized, currentInterval, fetchCapsulesInBackground]);\\n\\n  \\n  useEffect(() => {\\n    if (hookCapsules.length > 0) {\\n      setCapsules(prevCapsules => {\\n        const mergedCapsules = [...prevCapsules];\\n        let hasChanges = false;\\n        \\n        hookCapsules.forEach(newCapsule => {\\n          const existingIndex = mergedCapsules.findIndex(c => c.id === newCapsule.id);\\n          if (existingIndex >= 0) {\\n            if (JSON.stringify(mergedCapsules[existingIndex]) !== JSON.stringify(newCapsule)) {\\n              mergedCapsules[existingIndex] = newCapsule;\\n              hasChanges = true;\\n            }\\n          } else {\\n            if (!newCapsule.id.startsWith('demo-capsule-')) {\\n              mergedCapsules.push(newCapsule);\\n              hasChanges = true;\\n            }\\n          }\\n        });\\n        \\n        return hasChanges ? mergedCapsules.sort((a, b) => b.createdAt - a.createdAt) : prevCapsules;\\n      });\\n    }\\n  }, [hookCapsules]);\\n\\n  useEffect(() => {\\n      \\n    ShellService.injectHook({ \\n      capsules, \\n      loading, \\n      createCapsule, \\n      fetchCapsules, \\n      addReaction,\\n      getBalance,\\n      verifyOnChainAction,\\n      updateCapsule,\\n      incrementViews,\\n      processInheritance\\n    });\\n  }, [capsules, loading, createCapsule, fetchCapsules, addReaction, getBalance, verifyOnChainAction, updateCapsule, incrementViews, processInheritance]);\\n\\n  const contextValue = {\\n    capsules,\\n    loading,\\n    backgroundLoading,\\n    createCapsule,\\n    fetchCapsules,\\n    addReaction,\\n    refetch\\n  };\\n\\n  return (\\n    \\x3CTimeCapsuleContext.Provider value={contextValue}>\\n      {children}\\n    \\x3C/TimeCapsuleContext.Provider>\\n  );\\n}"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "tsx"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 29,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "src/hooks/useToast.ts-4"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "src/hooks/useToast.ts"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 5
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 9
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "interface ToastState {\\n  isVisible: boolean;\\n  message: string;\\n  type: ToastType;\\n}"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "typescript"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                },
+                                {
+                                    "t": 10,
+                                    "i": 30,
+                                    "p": {
+                                        "k": [
+                                            "id",
+                                            "path",
+                                            "startLine",
+                                            "endLine",
+                                            "code",
+                                            "language"
+                                        ],
+                                        "v": [
+                                            {
+                                                "t": 1,
+                                                "s": "tsconfig.node.json-0"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "tsconfig.node.json"
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 1
+                                            },
+                                            {
+                                                "t": 0,
+                                                "s": 26
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "{\\n  \\\"compilerOptions\\\": {\\n    \\\"tsBuildInfoFile\\\": \\\"./node_modules/.tmp/tsconfig.node.tsbuildinfo\\\",\\n    \\\"target\\\": \\\"ES2022\\\",\\n    \\\"lib\\\": [\\\"ES2023\\\"],\\n    \\\"module\\\": \\\"ESNext\\\",\\n    \\\"skipLibCheck\\\": true,\\n\\n    /* Bundler mode */\\n    \\\"moduleResolution\\\": \\\"bundler\\\",\\n    \\\"allowImportingTsExtensions\\\": true,\\n    \\\"verbatimModuleSyntax\\\": false,\\n    \\\"moduleDetection\\\": \\\"force\\\",\\n    \\\"noEmit\\\": true,\\n\\n    /* Linting */\\n    \\\"strict\\\": true,\\n    \\\"noUnusedLocals\\\": true,\\n    \\\"noUnusedParameters\\\": true,\\n    \\\"erasableSyntaxOnly\\\": true,\\n    \\\"noFallthroughCasesInSwitch\\\": true,\\n    \\\"noUncheckedSideEffectImports\\\": true,\\n  },\\n  \\\"include\\\": [\\\"vite.config.ts\\\"]\\n}\\n"
+                                            },
+                                            {
+                                                "t": 1,
+                                                "s": "json"
+                                            }
+                                        ]
+                                    },
+                                    "o": 0
+                                }
+                            ],
+                            "o": 0
+                        },
+                        {
+                            "t": 2,
+                            "s": 0
+                        },
+                        {
+                            "t": 10,
+                            "i": 31,
+                            "p": {
+                                "k": [
+                                    "totalBlobs",
+                                    "consideredFiles",
+                                    "indexedFiles",
+                                    "totalChunks",
+                                    "retrievedChunks",
+                                    "fetchMs",
+                                    "aiMs",
+                                    "totalMs",
+                                    "usedCache"
+                                ],
+                                "v": [
+                                    {
+                                        "t": 0,
+                                        "s": 0
+                                    },
+                                    {
+                                        "t": 0,
+                                        "s": 0
+                                    },
+                                    {
+                                        "t": 0,
+                                        "s": 0
+                                    },
+                                    {
+                                        "t": 0,
+                                        "s": -1
+                                    },
+                                    {
+                                        "t": 0,
+                                        "s": 3
+                                    },
+                                    {
+                                        "t": 0,
+                                        "s": 935
+                                    },
+                                    {
+                                        "t": 0,
+                                        "s": 15540
+                                    },
+                                    {
+                                        "t": 0,
+                                        "s": 16476
+                                    },
+                                    {
+                                        "t": 2,
+                                        "s": 2
+                                    }
+                                ]
+                            },
+                            "o": 0
+                        },
+                        {
+                            "t": 2,
+                            "s": 0
+                        }
+                    ]
+                },
+                "o": 0
+            },
+            {
+                "t": 2,
+                "s": 1
+            },
+            {
+                "t": 11,
+                "i": 32,
+                "p": {
+                    "k": [],
+                    "v": []
+                },
+                "o": 0
+            }
+        ]
+    },
+    "o": 0
+}

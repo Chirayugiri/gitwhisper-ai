@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useServerFn } from "@tanstack/react-start";
-import { askRepo, ingestRepo, type Snippet } from "@/api/repo.functions";
+import type { Snippet } from "@/api/repo.functions";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -89,8 +88,35 @@ type Phase =
   | { kind: "answering"; startedAt: number };
 
 function ConsolePage() {
-  const ask = useServerFn(askRepo);
-  const ingest = useServerFn(ingestRepo);
+  const ask = useCallback(async (args: { data: any }) => {
+    const baseUrl = import.meta.env.VITE_FASTAPI_URL || "http://127.0.0.1:8000";
+    try {
+      const res = await fetch(`${baseUrl}/api/ask`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(args.data),
+      });
+      if (!res.ok) return { ok: false, error: `Backend error: ${res.status}` };
+      return res.json();
+    } catch (e) {
+      return { ok: false, error: "Unexpected error contacting backend." };
+    }
+  }, []);
+
+  const ingest = useCallback(async (args: { data: any }) => {
+    const baseUrl = import.meta.env.VITE_FASTAPI_URL || "http://127.0.0.1:8000";
+    try {
+      const res = await fetch(`${baseUrl}/api/ingest`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(args.data),
+      });
+      if (!res.ok) return { ok: false, error: `Backend error: ${res.status}` };
+      return res.json();
+    } catch (e) {
+      return { ok: false, error: "Ingestion failed" };
+    }
+  }, []);
   const [repoInput, setRepoInput] = useState("https://github.com/Chirayugiri/gitwhisper-ai");
   const [activeRepo, setActiveRepo] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
@@ -164,6 +190,8 @@ function ConsolePage() {
         });
 
         if (result.ok) {
+          console.log("=== Retrieved Chunks ===", (result as any).retrieved_chunks);
+          console.log("=== Reranked Chunks ===", (result as any).reranked_chunks);
           updateTurns(key, (prev) => [
             ...prev,
             {

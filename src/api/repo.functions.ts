@@ -8,6 +8,7 @@ export type Snippet = {
   endLine: number;
   code: string;
   language: string;
+  branch?: string;
 };
 
 const MessageSchema = z.object({

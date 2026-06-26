@@ -31,6 +31,8 @@ class AskResponse(BaseModel):
     repo: Optional[str] = None
     branch: Optional[str] = None
     snippets: Optional[List[Dict[str, Any]]] = None
+    retrieved_chunks: Optional[List[Dict[str, Any]]] = None
+    reranked_chunks: Optional[List[Dict[str, Any]]] = None
     files: Optional[List[Dict[str, Any]]] = None
     stats: Optional[AskResponseStats] = None
     error: Optional[str] = None
