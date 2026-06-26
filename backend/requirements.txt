@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+qdrant-client
+requests
+sentence-transformers
+pydantic
+python-dotenv
+tree-sitter
+tree-sitter-typescript
+tree-sitter-javascript
+langchain
+langchain-core
+langchain-groq
+langgraph
