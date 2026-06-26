@@ -36,9 +36,7 @@ pnpm-debug.log*
 supabase/.temp/
 supabase/functions/.env
 
-.venv
 .vercel
-backend/__pycache__/
-backend/qdrant_local_storage
 .wrangler
-qdrant_storage
+__pycache__/
+backend/.venv
