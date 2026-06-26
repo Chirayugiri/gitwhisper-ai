@@ -91,7 +91,7 @@ type Phase =
 function ConsolePage() {
   const ask = useServerFn(askRepo);
   const ingest = useServerFn(ingestRepo);
-  const [repoInput, setRepoInput] = useState("vercel/next.js");
+  const [repoInput, setRepoInput] = useState("https://github.com/Chirayugiri/gitwhisper-ai");
   const [activeRepo, setActiveRepo] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
   const [allHistory, setAllHistory] = useState<Record<string, Turn[]>>({});
@@ -298,8 +298,8 @@ function ConsolePage() {
           </form>
           <span
             className={`font-mono text-[10px] uppercase tracking-widest flex items-center gap-1.5 ${ingestPhase === "fetching" ? "text-primary" :
-                ingestPhase === "error" ? "text-destructive" :
-                  "text-muted-foreground"
+              ingestPhase === "error" ? "text-destructive" :
+                "text-muted-foreground"
               }`}
           >
             {ingestPhase === "fetching" ? <><Loader2 size={12} className="animate-spin" /> {ingestMessage}</> :
@@ -339,8 +339,8 @@ function ConsolePage() {
                           setRepoInput(repoKey);
                         }}
                         className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors pr-9 ${isActive
-                            ? "bg-foreground text-background"
-                            : "hover:bg-muted text-foreground"
+                          ? "bg-foreground text-background"
+                          : "hover:bg-muted text-foreground"
                           }`}
                       >
                         <div className="font-mono text-xs truncate">{k}</div>
@@ -521,10 +521,10 @@ function IndexingPanel({
             <li key={s.id} className="flex items-center gap-3">
               <span
                 className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${state === "done"
-                    ? "bg-primary text-primary-foreground"
-                    : state === "active"
-                      ? "bg-foreground text-background"
-                      : "bg-muted text-muted-foreground"
+                  ? "bg-primary text-primary-foreground"
+                  : state === "active"
+                    ? "bg-foreground text-background"
+                    : "bg-muted text-muted-foreground"
                   }`}
               >
                 {state === "done" ? "✓" : i + 1}
@@ -543,11 +543,7 @@ function IndexingPanel({
         })}
       </ol>
 
-      {cached && (
-        <div className="mt-4 pt-4 border-t border-border/60 font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
-          Reusing {cachedCount} cached files — no GitHub round-trip
-        </div>
-      )}
+
     </div>
   );
 }
@@ -581,8 +577,8 @@ function TurnView({
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <div
           className={`font-mono text-[10px] inline-block px-2 py-1 rounded uppercase tracking-widest ${turn.error
-              ? "bg-destructive text-destructive-foreground"
-              : "bg-foreground text-background"
+            ? "bg-destructive text-destructive-foreground"
+            : "bg-foreground text-background"
             }`}
         >
           {turn.error ? "Error" : "Answer"}

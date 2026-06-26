@@ -21,16 +21,13 @@ GitWhisper is an AI-powered code analysis tool that allows you to chat with any 
 
 ## Setup & Installation
 
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+The project uses a split architecture: a Python FastAPI backend and a Vite/React frontend.
 
-2. **Configure Environment Variables:**
+1. **Configure Environment Variables:**
    Create a `.env` file in the root directory and add the following keys:
    ```env
    # Qdrant Vector Database
-   QDRANT_URL=http://localhost:6333
+   QDRANT_URL=http://localhost:6333 # Or your Qdrant Cloud URL
    QDRANT_API_KEY=your_qdrant_api_key
 
    # LLM & GitHub
@@ -38,15 +35,29 @@ GitWhisper is an AI-powered code analysis tool that allows you to chat with any 
    GITHUB_TOKEN=your_github_token
    ```
 
-3. **Start the Development Server:**
+2. **Start the Python Backend:**
+   Open a terminal, navigate to the backend folder, and start the FastAPI server:
    ```bash
+   cd backend
+   python -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+   ```
+
+3. **Start the Frontend Development Server:**
+   Open a new terminal in the root directory, install dependencies, and run Vite:
+   ```bash
+   npm install
    npm run dev
    ```
 
 ## Technologies Used
 
-- [TanStack Start](https://tanstack.com/start) & React
-- [Qdrant](https://qdrant.tech/) for Vector Search
-- [Transformers.js](https://huggingface.co/docs/transformers.js/) for in-browser/local embeddings
-- [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) for AST Parsing
-- [Tailwind CSS](https://tailwindcss.com/) & Radix UI
+- **Frontend:** [TanStack Start](https://tanstack.com/start) & React, [Tailwind CSS](https://tailwindcss.com/) & Radix UI
+- **Backend:** [FastAPI](https://fastapi.tiangolo.com/) & Python
+- **Database:** [Qdrant](https://qdrant.tech/) for Vector Search
+- **AI/ML Pipelines:** 
+  - [LangChain](https://www.langchain.com/) & [LangGraph](https://www.langchain.com/langgraph) for LLM orchestration
+  - `sentence-transformers` for local Python embeddings & reranking
+- **Code Parsing:** [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) (Python) for intelligent AST Chunking

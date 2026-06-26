@@ -81,7 +81,7 @@ function getResponse() {
 }
 var HEADERS = { TSS_SHELL: "X-TSS_SHELL" };
 async function getStartManifest(matchedRoutes) {
-  const { tsrStartManifest } = await import("../_tanstack-start-manifest_v-CsUUT3AV.mjs");
+  const { tsrStartManifest } = await import("../_tanstack-start-manifest_v-C0S1-w3J.mjs");
   const startManifest = tsrStartManifest();
   const rootRoute = startManifest.routes[rootRouteId] = startManifest.routes[rootRouteId] || {};
   rootRoute.assets = rootRoute.assets || [];
@@ -106,9 +106,13 @@ async function getStartManifest(matchedRoutes) {
   };
 }
 const manifest = {
+  "1446e3c05cc5cdcefa3918c4a43ec67762dcb45fe19068e9e2f6b6d61007d653": {
+    functionName: "ingestRepo_createServerFn_handler",
+    importer: () => import("./repo.functions-HQSZ-_XV.mjs")
+  },
   "120c1a8b4f16ac0c68b94e939c07d0be9bea78b8396c4737ccc5333c39ebf788": {
     functionName: "askRepo_createServerFn_handler",
-    importer: () => import("./repo.functions-DOtX8YMi.mjs")
+    importer: () => import("./repo.functions-HQSZ-_XV.mjs")
   }
 };
 async function getServerFnById(id, access) {
@@ -863,7 +867,7 @@ var baseManifestPromise;
 var cachedFinalManifestPromise;
 async function loadEntries() {
   const [routerEntry, startEntry, pluginAdapters] = await Promise.all([
-    import("./router-B5P2n5lw.mjs"),
+    import("./router-B9ru859o.mjs"),
     import("./start-HYkvq4Ni.mjs"),
     import("../__23tanstack-start-plugin-adapters-Cwee5PKy.mjs")
   ]);
