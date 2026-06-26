@@ -1,10 +1,6 @@
-import re
-import uuid
 from typing import List, Dict, Any, Optional, TypedDict
 # pyrefly: ignore [missing-import]
 from sentence_transformers import SentenceTransformer, CrossEncoder
-# pyrefly: ignore [missing-import]
-from qdrant_client.http.models import PointStruct
 
 # pyrefly: ignore [missing-import]
 from langchain_groq import ChatGroq
@@ -41,8 +37,13 @@ def build_context(snippets: List[Dict[str, Any]]) -> str:
     parts = []
     total = 0
     for s in snippets:
-        block = f"\n--- {s['path']} (lines {s['startLine']}-{s['endLine']}) ---\n{s['code']}\n"
-        if total + len(block) > MAX_CONTEXT_CHARS: break
+        start = s.get("start_line", s.get("startLine", "?"))
+        end = s.get("end_line", s.get("endLine", "?"))
+        name = s.get("name", "")
+        header = f"{s['path']}:{start}-{end}" + (f" [{name}]" if name else "")
+        block = f"\n--- {header} ---\n{s['code']}\n"
+        if total + len(block) > MAX_CONTEXT_CHARS:
+            break
         parts.append(block)
         total += len(block)
     return "".join(parts)

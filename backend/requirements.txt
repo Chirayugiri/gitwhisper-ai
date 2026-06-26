@@ -8,6 +8,7 @@ python-dotenv
 tree-sitter
 tree-sitter-typescript
 tree-sitter-javascript
+tree-sitter-python
 langchain
 langchain-core
 langchain-groq
