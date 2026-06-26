@@ -1,170 +1,63 @@
-## ✨ Overview
+# GitWhisper
 
-GitWhisper AI is an intelligent developer assistant that enables users to chat with GitHub repositories using natural language.
+GitWhisper is an AI-powered code analysis tool that allows you to chat with any public GitHub repository. Simply provide a repository link, and GitWhisper will ingest its codebase, chunk the files intelligently, and answer your technical questions using advanced Retrieval-Augmented Generation (RAG).
 
-Instead of manually exploring files, functions, and documentation, GitWhisper AI analyzes the repository, indexes the codebase using embeddings, and provides AI-generated answers grounded in the actual source code.
+## Features
 
-Built using modern AI engineering practices including:
+- **Advanced RAG Pipeline:** Intelligent AST-based code chunking ensures that meaningful structures (like functions and classes) are preserved.
+- **Qdrant Vector Database Integration:** Code chunks are embedded into dense vectors and securely ingested into Qdrant for extremely fast and scalable semantic retrieval.
+- **Local Embeddings & Reranking:** 
+  - Uses `@xenova/transformers` with the `Xenova/all-MiniLM-L6-v2` model locally for creating semantic embeddings.
+  - Employs the `Xenova/ms-marco-MiniLM-L-6-v2` Cross-Encoder to rerank retrieved documents to ensure highest context relevance.
+- **LLM Generation:** Queries the Groq API (or any configured LLM) with the highest-scoring codebase snippets to generate precise, markdown-formatted answers.
+- **Smart Caching:** Avoids redundant data fetching and embedding by directly querying the Qdrant database if a repository has already been ingested.
 
-- 🧠 Retrieval-Augmented Generation (RAG)
-- 🔎 Semantic Code Search
-- 📚 Vector Embeddings
-- ⚡ Fast LLM Responses
-- 🧩 Context-Aware Repository Understanding
+## How it Works
 
----
+1. **Ingestion**: When a GitHub repository URL is provided, GitWhisper fetches the files, filters for text and code, and parses the files into abstract syntax trees (AST) to generate context-aware chunks.
+2. **Embedding & Storage**: Embeddings are generated for each chunk locally and upserted into Qdrant in batches. A collection named after the repository is automatically created.
+3. **Retrieval**: When you ask a question, the question is embedded, and a vector search is performed in Qdrant to find the top 20 most relevant chunks.
+4. **Reranking & Generation**: The top results are reranked for precision. Chunks passing the confidence threshold are then provided to the LLM to generate a detailed, cited response.
 
-# 🌟 Features
+## Setup & Installation
 
-### 🤖 AI-Powered Repository Chat
-Ask questions like:
-- “How does authentication work?”
-- “Explain the folder structure”
-- “Where is JWT implemented?”
-- “How is the API connected to MongoDB?”
+The project uses a split architecture: a Python FastAPI backend and a Vite/React frontend.
 
----
+1. **Configure Environment Variables:**
+   Create a `.env` file in the root directory and add the following keys:
+   ```env
+   # Qdrant Vector Database
+   QDRANT_URL=http://localhost:6333 # Or your Qdrant Cloud URL
+   QDRANT_API_KEY=your_qdrant_api_key
 
-### 📂 GitHub Repository Analysis
-- Parse and understand public repositories
-- Extract project structure and code context
-- Intelligent chunking for better retrieval
+   # LLM & GitHub
+   LLM_API_KEY=your_groq_api_key
+   GITHUB_TOKEN=your_github_token
+   ```
 
----
+2. **Start the Python Backend:**
+   Open a terminal, navigate to the backend folder, and start the FastAPI server:
+   ```bash
+   cd backend
+   python -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+   ```
 
-### 🔍 Semantic Code Search
-Find relevant code snippets using embeddings instead of keyword matching.
+3. **Start the Frontend Development Server:**
+   Open a new terminal in the root directory, install dependencies, and run Vite:
+   ```bash
+   npm install
+   npm run dev
+   ```
 
----
+## Technologies Used
 
-### 🧠 RAG-Based Architecture
-Combines:
-- Vector similarity search
-- Context retrieval
-- LLM reasoning
-
-for highly relevant answers grounded in actual repository code.
-
----
-
-### ⚡ Real-Time AI Responses
-Optimized for fast query processing and contextual responses.
-
----
-
-### 🎨 Modern UI/UX
-- Clean developer-focused interface
-- Responsive design
-- Smooth conversational experience
-
----
-
-# 🏗️ Architecture
-
-```bash
-GitHub Repository
-        ↓
-Code Parsing & Chunking
-        ↓
-Embedding Generation
-        ↓
-Vector Database Storage
-        ↓
-Relevant Context Retrieval
-        ↓
-LLM Processing
-        ↓
-AI Response Generation
-
-```
-
-
-🛠️ Tech Stack
-Frontend
-Next.js
-React.js
-Tailwind CSS
-TypeScript
-
-Backend / AI
-Node.js
-LangChain
-Gemini / OpenAI APIs
-RAG Pipeline
-Vector Database
-
-Deployment
-Vercel
-
-🚀 Getting Started
-1️⃣ Clone the Repository
-git clone https://github.com/Chirayugiri/gitwhisper-ai.git
-cd gitwhisper-ai
-2️⃣ Install Dependencies
-npm install
-3️⃣ Setup Environment Variables
-
-Create a .env.local file in the root directory.
-
-GOOGLE_API_KEY=your_api_key
-OPENAI_API_KEY=your_api_key
-4️⃣ Run the Development Server
-npm run dev
-
-Open:
-
-http://localhost:3000
-
-💡 How It Works
-User provides a GitHub repository
-Repository code is parsed and chunked
-Embeddings are generated
-Code chunks are stored in a vector database
-Relevant context is retrieved for user queries
-LLM generates grounded answers using retrieved code context
-🎯 Use Cases
-📘 Understand unfamiliar codebases
-⚡ Speed up onboarding for developers
-🔍 Quickly locate implementations
-🧠 Learn project architecture
-🛠️ Improve developer productivity
-👨‍💻 AI assistant for open-source projects
-
-📂 Project Structure
-gitwhisper-ai/
-├── app/
-├── components/
-├── lib/
-├── services/
-├── utils/
-├── public/
-├── styles/
-├── package.json
-└── README.md
-
-🔮 Future Improvements
-Multi-repository support
-GitHub authentication
-Persistent chat memory
-Code summarization
-Repository visualization
-Multi-agent workflows
-Advanced code analytics
-
-🤝 Contributing
-
-Contributions are welcome!
-
-If you'd like to improve GitWhisper AI:
-
-Fork the repository
-Create a new branch
-Commit your changes
-Open a Pull Request
-⭐ Support
-
-If you found this project useful:
-
-Star the repository
-Share it with developers
-Contribute to the project
+- **Frontend:** [TanStack Start](https://tanstack.com/start) & React, [Tailwind CSS](https://tailwindcss.com/) & Radix UI
+- **Backend:** [FastAPI](https://fastapi.tiangolo.com/) & Python
+- **Database:** [Qdrant](https://qdrant.tech/) for Vector Search
+- **AI/ML Pipelines:** 
+  - [LangChain](https://www.langchain.com/) & [LangGraph](https://www.langchain.com/langgraph) for LLM orchestration
+  - `sentence-transformers` for local Python embeddings & reranking
+- **Code Parsing:** [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) (Python) for intelligent AST Chunking
