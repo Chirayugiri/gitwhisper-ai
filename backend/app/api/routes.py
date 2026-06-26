@@ -9,6 +9,7 @@ import re
 import time
 import uuid
 
+# pyrefly: ignore [missing-import]
 from fastapi import APIRouter
 from qdrant_client.http.models import Distance, PointStruct  # type: ignore[import]
 

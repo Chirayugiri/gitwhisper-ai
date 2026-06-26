@@ -42,7 +42,7 @@ The project uses a split architecture: a Python FastAPI backend and a Vite/React
    python -m venv .venv
    source .venv/bin/activate
    pip install -r requirements.txt
-   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+   uvicorn app.main:app --reload --host 0.0.0.0 --port 9000
    ```
 
 3. **Start the Frontend Development Server:**
